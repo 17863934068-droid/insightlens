@@ -11,7 +11,13 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import * as pdfjsLib from 'pdfjs-dist';
 import './App.css';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url,
+).href;
 
 /* ───────────────────────────────────────────────
    i18n — English & Chinese
@@ -22,7 +28,7 @@ const I18N = {
     navToolkit: 'Research Toolkit',
     navTry: 'Try it',
     heroSlogan: 'Think deeper. Move faster.',
-    heroSubcopy: 'Upload interviews, get structured insights. AI drafts, you decide.',
+    heroSubcopy: 'An AI-powered user research tool that transforms messy interview transcripts into structured insights.',
     heroCta: 'Start Researching',
     howTitle: 'How it works',
     howSubtitle: 'From raw interviews to decisions in three steps',
@@ -138,6 +144,21 @@ const I18N = {
     footerPrivacy: 'Privacy',
     footerCopyright: '\u00a9 2026 InsightLens. A PolyU School of Design project.',
     langToggle: '\u4e2d / EN',
+    heroEyebrow: 'AI User Research',
+    doubtBadge: 'Verify',
+    confirmedBadge: 'Verified',
+    viewSource: 'View Source',
+    sourceTitle: 'Original Transcript',
+    sourceClose: 'Close',
+    evidenceBtn: '↩ Source',
+    evidenceNotFound: 'Passage not found — please verify manually.',
+    addTranscript: '+ Add Interview',
+    transcriptDefault: 'Interview',
+    uploadAnalyzeMulti: 'Synthesize',
+    progressAnalyzing: 'analyzed',
+    progressSynthesizing: 'Synthesizing across interviews…',
+    sourceCountLabel: 'across {n} interviews',
+    synthesisNote: 'Synthesis of {n} interviews',
   },
   zh: {
     navHowItWorks: '\u8fd0\u4f5c\u65b9\u5f0f',
@@ -146,7 +167,7 @@ const I18N = {
     navStart: '\u5f00\u59cb\u7814\u7a76',
     heroSlogan: '\u601d\u8003\u66f4\u6df1\uff0c\u884c\u52a8\u66f4\u5feb\u3002',
 
-    heroSubcopy: '\u4e0a\u4f20\u8bbf\u8c08\uff0c\u83b7\u53d6\u7ed3\u6784\u5316\u6d1e\u5bdf\u3002AI \u8d77\u8349\uff0c\u4f60\u6765\u51b3\u7b56\u3002',
+    heroSubcopy: 'AI \u9a71\u52a8\u7684\u7528\u6237\u7814\u7a76\u5de5\u5177\uff0c\u5c06\u6742\u4e71\u7684\u8bbf\u8c08\u8bb0\u5f55\u8f6c\u5316\u4e3a\u7ed3\u6784\u5316\u6d1e\u5bdf\u3002',
     heroCta: '\u5f00\u59cb\u7814\u7a76',
     howTitle: '\u8fd0\u4f5c\u65b9\u5f0f',
     howSubtitle: '\u4ece\u539f\u59cb\u8bbf\u8c08\u5230\u51b3\u7b56\uff0c\u53ea\u9700\u4e09\u6b65',
@@ -262,6 +283,21 @@ const I18N = {
     footerPrivacy: '\u9690\u79c1',
     footerCopyright: '\u00a9 2026 InsightLens. \u9999\u6e2f\u7406\u5de5\u5927\u5b66\u8bbe\u8ba1\u5b66\u9662\u9879\u76ee\u3002',
     langToggle: '\u4e2d / EN',
+    heroEyebrow: 'AI \u7528\u6237\u7814\u7a76\u5de5\u5177',
+    doubtBadge: '\u5efa\u8bae\u6838\u5bf9',
+    confirmedBadge: '\u5df2\u6838\u5bf9',
+    viewSource: '\u67e5\u770b\u539f\u6587',
+    sourceTitle: '\u539f\u59cb\u8bbf\u8c08\u8bb0\u5f55',
+    sourceClose: '\u5173\u95ed',
+    evidenceBtn: '\u21a9 \u67e5\u770b\u539f\u6587',
+    evidenceNotFound: '\u672a\u80fd\u5b9a\u4f4d\u5230\u539f\u6587\u7247\u6bb5\uff0c\u8bf7\u624b\u52a8\u6838\u5bf9\u3002',
+    addTranscript: '+ \u6dfb\u52a0\u8bbf\u8c08',
+    transcriptDefault: '\u8bbf\u8c08',
+    uploadAnalyzeMulti: '\u7efc\u5408\u5206\u6790',
+    progressAnalyzing: '\u5df2\u5206\u6790',
+    progressSynthesizing: '\u6b63\u5728\u8de8\u6587\u6863\u7efc\u5408\u5206\u6790\u2026',
+    sourceCountLabel: '{n} \u4efd\u8bbf\u8c08\u5747\u63d0\u53ca',
+    synthesisNote: '\u7efc\u5408 {n} \u4efd\u8bbf\u8c08',
   },
 };
 
@@ -276,15 +312,31 @@ const THEME_BAR_COLOR = '#FF6B35';
 const CHART_FONT = "'DM Sans', sans-serif";
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ACCEPTED_TEXT_TYPES = ['application/pdf', 'text/plain'];
+
+async function extractPdfText(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const parts = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    parts.push(content.items.map((item) => item.str).join(' '));
+  }
+  return parts.join('\n\n').trim();
+}
+
+const API_KEY = 'sk-361e92a453c44324b376f5385f21057b';
+const API_URL = 'https://api.deepseek.com/chat/completions';
 
 const SYSTEM_PROMPT = `你是一名专业的用户研究分析师。请仔细阅读用户提供的访谈内容，分析后仅以 JSON 格式输出结果，不要包含任何 JSON 之外的说明文字。
 
 JSON 结构如下，请严格遵守字段名和取值范围：
 {
-  "themes": [ { "title": "主题标题", "summary": "对该主题的概括，1-2句话" } ],
-  "painPoints": [ { "description": "痛点描述", "frequency": "高 | 中 | 低", "severity": "高 | 中 | 低", "theme": "该痛点所属主题的标题，必须与 themes 数组中某一项的 title 完全一致" } ],
-  "personas": [ { "name": "用户画像名称", "background": "背景描述", "needs": "核心诉求" } ],
-  "insights": [ { "title": "洞察标题", "description": "对该洞察的解释，1-2句话", "nextStep": "建议的下一步行动" } ]
+  "themes": [ { "title": "主题标题", "summary": "对该主题的概括，1-2句话", "evidence": "直接从原文中截取的支撑句，必须逐字引用原文，不得改写" } ],
+  "painPoints": [ { "description": "痛点描述", "frequency": "高 | 中 | 低", "severity": "高 | 中 | 低", "theme": "该痛点所属主题的标题，必须与 themes 数组中某一项的 title 完全一致", "evidence": "直接从原文中截取的体现该痛点的句子，必须逐字引用原文，不得改写" } ],
+  "personas": [ { "name": "用户画像名称", "background": "背景描述", "needs": "核心诉求", "evidence": "直接从原文中截取的支撑该画像的句子，必须逐字引用原文，不得改写" } ],
+  "insights": [ { "title": "洞察标题", "description": "对该洞察的解释，1-2句话", "nextStep": "建议的下一步行动", "evidence": "直接从原文中截取的引发该洞察的句子，必须逐字引用原文，不得改写" } ]
 }
 
 要求：
@@ -292,7 +344,26 @@ JSON 结构如下，请严格遵守字段名和取值范围：
 - painPoints 中每条的 frequency 和 severity 字段只能是 "高"、"中"、"低" 三者之一
 - painPoints 中每条的 theme 字段必须引用 themes 数组中已存在的某个 title，建立痛点与主题的关联
 - personas 数组包含 1-2 个用户画像
-- insights 数组包含 3-5 条深刻洞察，每条需同时给出标题、解释和建议的下一步行动`;
+- insights 数组包含 3-5 条深刻洞察，每条需同时给出标题、解释和建议的下一步行动
+- 所有 evidence 字段必须是原文的原话，逐字截取，不得改写、总结或意译`;
+
+const SYNTHESIS_PROMPT = `你是一名专业的用户研究分析师。以下是对多份独立访谈的分析结果（JSON数组），每个元素包含访谈名称（interviewName）和该份访谈的结构化分析（analysis）。
+
+请综合所有分析结果，提取跨访谈的共性规律，合并相似条目，并在每条内容中添加 sourceCount 字段（整数，表示该条内容在几份访谈中有所体现）。
+
+JSON 结构如下：
+{
+  "themes": [ { "title": "...", "summary": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
+  "painPoints": [ { "description": "...", "frequency": "高|中|低", "severity": "高|中|低", "theme": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
+  "personas": [ { "name": "...", "background": "...", "needs": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
+  "insights": [ { "title": "...", "description": "...", "nextStep": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ]
+}
+
+要求：
+- 合并相似或重叠的主题、痛点，不得重复列举
+- sourceCount 表示该条内容在几份访谈分析中有所体现，按从高到低排序
+- themes 3-5 条，painPoints 不限，personas 1-3 个，insights 3-5 条
+- evidence 必须是某份访谈原文的原话，逐字引用`;
 
 function TopNav({ onHowItWorks, onToolkit, onTry, onToggleLang, t }) {
   return (
@@ -327,63 +398,16 @@ function handleDecoClick(e) {
 function Landing({ onStart, landingRef, t }) {
   return (
     <section className="landing" ref={landingRef}>
+      <img className="landing-bg-img" src="/research-bg.jpg" alt="" aria-hidden="true" />
+      <div className="landing-overlay" aria-hidden="true" />
       <div className="landing-inner">
-        <div className="landing-content">
-          <div className="landing-stage">
-            <svg className="deco-svg deco-note" width="52" height="52" viewBox="0 0 48 48" fill="none" aria-hidden="true" onClick={handleDecoClick}>
-              <rect x="2" y="2" width="44" height="44" rx="4" fill="#f59e0b" />
-              <rect x="2" y="2" width="44" height="44" rx="4" stroke="#d97706" strokeWidth="1.5" />
-              <line x1="12" y1="18" x2="36" y2="18" stroke="rgba(0,0,0,0.15)" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="12" y1="26" x2="30" y2="26" stroke="rgba(0,0,0,0.15)" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="12" y1="34" x2="24" y2="34" stroke="rgba(0,0,0,0.15)" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-            <svg className="deco-svg deco-star" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" onClick={handleDecoClick}>
-              <path d="M20 2L24.5 14.5L38 16L28 25.5L30.5 39L20 32.5L9.5 39L12 25.5L2 16L15.5 14.5L20 2Z" fill="#f59e0b" stroke="#d97706" strokeWidth="1.5" />
-            </svg>
-            <svg className="deco-svg deco-lightbulb" width="44" height="52" viewBox="0 0 32 44" fill="none" aria-hidden="true" onClick={handleDecoClick}>
-              <path d="M16 2C9.5 2 4 7.5 4 14C4 18.5 6.5 22.5 10 25V30H22V25C25.5 22.5 28 18.5 28 14C28 7.5 22.5 2 16 2Z" fill="#eab308" stroke="#d97706" strokeWidth="1.5" />
-              <rect x="12" y="32" width="8" height="3" rx="1" fill="#d97706" />
-              <rect x="13" y="37" width="6" height="2" rx="1" fill="#d97706" />
-              <rect x="14" y="41" width="4" height="2" rx="1" fill="#d97706" />
-              <line x1="16" y1="14" x2="16" y2="22" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" />
-              <line x1="12" y1="18" x2="20" y2="18" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            <svg className="deco-svg deco-magnifier" width="46" height="46" viewBox="0 0 44 44" fill="none" aria-hidden="true" onClick={handleDecoClick}>
-              <circle cx="18" cy="18" r="14" fill="#ec4899" stroke="#db2777" strokeWidth="2" />
-              <circle cx="18" cy="18" r="6" fill="rgba(255,255,255,0.3)" />
-              <line x1="28" y1="28" x2="40" y2="40" stroke="#db2777" strokeWidth="3.5" strokeLinecap="round" />
-            </svg>
-            <svg className="deco-svg deco-barchart" width="50" height="46" viewBox="0 0 48 44" fill="none" aria-hidden="true" onClick={handleDecoClick}>
-              <rect x="4" y="24" width="8" height="16" rx="2" fill="#10b981" />
-              <rect x="16" y="14" width="8" height="26" rx="2" fill="#10b981" />
-              <rect x="28" y="20" width="8" height="20" rx="2" fill="#10b981" />
-              <rect x="40" y="8" width="8" height="32" rx="2" fill="#10b981" />
-            </svg>
-            <h1 className="landing-title">InsightLens</h1>
-          </div>
-          <p className="landing-slogan">{t.heroSlogan}</p>
+        <div className="landing-hero-text">
+          <h1 className="landing-title">InsightLens</h1>
           <p className="landing-subcopy">{t.heroSubcopy}</p>
           <button className="landing-cta" onClick={onStart}>{t.heroCta}</button>
         </div>
-        <div className="landing-image-wrap">
-          <img className="landing-image" src="/research-bg.jpg" alt="Research background" />
-        </div>
       </div>
-      <div className="landing-deco-bottom-left" aria-hidden="true">
-        <span>📋</span>
-        <span>💬</span>
-      </div>
-      <div className="landing-deco-bottom-right" aria-hidden="true">
-        <span>🔍</span>
-        <span>📊</span>
-      </div>
-        <div className="landing-scroll-indicator" aria-hidden="true">
-        <span className="landing-scroll-text">Scroll to explore</span>
-        <div className="landing-scroll-indicator-arrow" />
-      </div>
-
     </section>
-
   );
 }
 
@@ -698,8 +722,26 @@ function EditableText({ value, onChange, multiline = false, style }) {
   );
 }
 
-function Card({ children }) {
-  return <div className="card">{children}</div>;
+function Card({ children, isConfirmed, onConfirm, evidence, onViewEvidence, t }) {
+  return (
+    <div className={`card${isConfirmed ? ' card--confirmed' : ''}`}>
+      {t && (
+        <div className="card-trust-row">
+          {isConfirmed ? (
+            <span className="confirmed-badge">✓ {t.confirmedBadge}</span>
+          ) : (
+            <button className="doubt-badge" onClick={onConfirm}>⚠ {t.doubtBadge}</button>
+          )}
+          {evidence && onViewEvidence && (
+            <button className="btn-evidence" onClick={(e) => { e.stopPropagation(); onViewEvidence(evidence); }}>
+              {t.evidenceBtn}
+            </button>
+          )}
+        </div>
+      )}
+      {children}
+    </div>
+  );
 }
 
 function Column({ title, children }) {
@@ -813,19 +855,56 @@ function DataOverview({ result, t }) {
   );
 }
 
-function App() {
-  const cursorRef = useRef(null);
+function SourceModal({ text, highlightQuote, onClose, t }) {
+  const bodyRef = useRef(null);
 
   useEffect(() => {
-    const onMouseMove = (e) => {
-      if (cursorRef.current) {
-        cursorRef.current.style.left = `${e.clientX}px`;
-        cursorRef.current.style.top = `${e.clientY}px`;
-      }
-    };
-    document.addEventListener('mousemove', onMouseMove);
-    return () => document.removeEventListener('mousemove', onMouseMove);
-  }, []);
+    const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (highlightQuote && bodyRef.current) {
+      const mark = bodyRef.current.querySelector('mark');
+      if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightQuote]);
+
+  const renderBody = () => {
+    if (!highlightQuote) return text;
+    const idx = text.indexOf(highlightQuote);
+    if (idx === -1) {
+      return (
+        <>
+          <span className="source-not-found">{t.evidenceNotFound}</span>
+          {'\n\n'}{text}
+        </>
+      );
+    }
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="source-highlight">{text.slice(idx, idx + highlightQuote.length)}</mark>
+        {text.slice(idx + highlightQuote.length)}
+      </>
+    );
+  };
+
+  return (
+    <div className="source-modal-overlay" onClick={onClose}>
+      <div className="source-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="source-modal-header">
+          <h3 className="source-modal-title">{t.sourceTitle}</h3>
+          <button className="source-modal-close" onClick={onClose}>×</button>
+        </div>
+        <pre className="source-modal-body" ref={bodyRef}>{renderBody()}</pre>
+      </div>
+    </div>
+  );
+}
+
+function App() {
 
   const [lang, setLang] = useState('en');
   const t = I18N[lang];
@@ -834,14 +913,17 @@ function App() {
     setLang((prev) => (prev === 'en' ? 'zh' : 'en'));
   };
 
-  const [input, setInput] = useState('');
+  const [transcripts, setTranscripts] = useState([{ id: crypto.randomUUID(), name: '', content: '' }]);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [progressStep, setProgressStep] = useState(0);
+  const [progressMsg, setProgressMsg] = useState('');
   const [images, setImages] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [voiceHintVisible, setVoiceHintVisible] = useState(false);
+  const [confirmedItems, setConfirmedItems] = useState({});
+  const [sourceModal, setSourceModal] = useState(null); // null | { quote?: string }
   const progressTimer = useRef(null);
   const voiceHintTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -876,20 +958,44 @@ function App() {
     }
   };
 
-  const addImageFiles = (fileList) => {
-    Array.from(fileList)
-      .filter((file) => ACCEPTED_IMAGE_TYPES.includes(file.type))
-      .forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          setImages((prev) => [...prev, { id: crypto.randomUUID(), name: file.name, base64: reader.result }]);
-        };
-        reader.readAsDataURL(file);
-      });
+  const addFiles = async (fileList) => {
+    const files = Array.from(fileList);
+
+    // Images → supplementary preview
+    files.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type)).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImages((prev) => [...prev, { id: crypto.randomUUID(), name: file.name, base64: reader.result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // PDFs and TXT → extract text → fill transcript slots
+    const textFiles = files.filter((f) => ACCEPTED_TEXT_TYPES.includes(f.type) || f.name.endsWith('.txt'));
+    for (const file of textFiles) {
+      try {
+        let text;
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          text = await extractPdfText(file);
+        } else {
+          text = await file.text();
+        }
+        const name = file.name.replace(/\.(pdf|txt)$/i, '');
+        setTranscripts((prev) => {
+          // If the only slot is empty, fill it; otherwise append a new slot
+          if (prev.length === 1 && !prev[0].content.trim()) {
+            return [{ ...prev[0], name: prev[0].name || name, content: text }];
+          }
+          return [...prev, { id: crypto.randomUUID(), name, content: text }];
+        });
+      } catch (err) {
+        console.error('File extraction failed:', file.name, err);
+      }
+    }
   };
 
   const handleFileChange = (e) => {
-    addImageFiles(e.target.files);
+    addFiles(e.target.files);
     e.target.value = '';
   };
 
@@ -906,7 +1012,7 @@ function App() {
   const handleDrop = (e) => {
     e.preventDefault();
     setDragActive(false);
-    if (e.dataTransfer.files?.length) addImageFiles(e.dataTransfer.files);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   };
 
   const removeImage = (id) => {
@@ -919,10 +1025,60 @@ function App() {
     return `\n\n[补充材料]\n用户额外上传了 ${images.length} 张图片（${names}），可能是产品截图、访谈现场照片或手写笔记等辅助材料。当前模型暂不支持直接解析图片内容，请将这些图片视为佐证材料纳入分析背景，结合文字内容综合判断。`;
   };
 
+  const addTranscript = () => {
+    setTranscripts((prev) => [...prev, { id: crypto.randomUUID(), name: '', content: '' }]);
+  };
+
+  const removeTranscript = (id) => {
+    setTranscripts((prev) => prev.filter((tr) => tr.id !== id));
+  };
+
+  const updateTranscript = (id, field, value) => {
+    setTranscripts((prev) => prev.map((tr) => tr.id === id ? { ...tr, [field]: value } : tr));
+  };
+
+  const buildSourceText = () => {
+    const valid = transcripts.filter((tr) => tr.content.trim());
+    if (valid.length === 1) return valid[0].content;
+    return valid.map((tr, i) =>
+      `【${t.transcriptDefault} ${i + 1}${tr.name ? `：${tr.name}` : ''}】\n\n${tr.content}`
+    ).join('\n\n' + '─'.repeat(32) + '\n\n');
+  };
+
+  const callApi = async (systemPrompt, userContent, maxTokens = 2048) => {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: maxTokens,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `API error: ${response.status}`);
+    }
+    const data = await response.json();
+    try {
+      return JSON.parse(data.choices[0].message.content);
+    } catch {
+      throw new Error('AI response is not valid JSON, please retry');
+    }
+  };
+
   const handleVoiceUploadClick = () => {
     setVoiceHintVisible(true);
     if (voiceHintTimer.current) clearTimeout(voiceHintTimer.current);
     voiceHintTimer.current = setTimeout(() => setVoiceHintVisible(false), 2600);
+  };
+
+  const confirmItem = (section, index) => {
+    setConfirmedItems((prev) => ({ ...prev, [`${section}-${index}`]: true }));
   };
 
   const updateField = (section, index, field, newValue) => {
@@ -931,60 +1087,49 @@ function App() {
       list[index] = { ...list[index], [field]: newValue };
       return { ...prev, [section]: list };
     });
+    confirmItem(section, index);
   };
 
   const handleSubmit = async () => {
-    if (!input.trim()) {
-      setError(t.uploadError);
-      return;
-    }
+    const valid = transcripts.filter((tr) => tr.content.trim());
+    if (valid.length === 0) { setError(t.uploadError); return; }
+
     setLoading(true);
     setError('');
     setResult(null);
-    startProgress();
+    setConfirmedItems({});
+
     try {
-      const apiKey = `sk-361e92a453c44324b376f5385f21057b`;
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: input + buildImageNote() },
-          ],
-          response_format: { type: 'json_object' },
-          max_tokens: 2048,
-        }),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || `API error: ${response.status}`);
+      if (valid.length === 1) {
+        startProgress();
+        const parsed = await callApi(SYSTEM_PROMPT, valid[0].content + buildImageNote());
+        setResult(parsed);
+      } else {
+        const namedResults = [];
+        for (let i = 0; i < valid.length; i++) {
+          setProgressMsg(`${i + 1} / ${valid.length} ${t.progressAnalyzing}`);
+          const parsed = await callApi(SYSTEM_PROMPT, valid[i].content);
+          namedResults.push({ interviewName: valid[i].name.trim() || `${t.transcriptDefault} ${i + 1}`, analysis: parsed });
+        }
+        setProgressMsg(t.progressSynthesizing);
+        const synthesis = await callApi(SYNTHESIS_PROMPT, JSON.stringify(namedResults), 4096);
+        setResult(synthesis);
       }
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-      let parsed;
-      try {
-        parsed = JSON.parse(content);
-      } catch {
-        throw new Error('AI response is not valid JSON, please retry');
-      }
-      setResult(parsed);
     } catch (err) {
       setError(`Error: ${err.message}`);
     } finally {
       setLoading(false);
       stopProgress();
+      setProgressMsg('');
     }
   };
 
   const handleExport = () => {
     if (!result) return;
+    const validCount = transcripts.filter((tr) => tr.content.trim()).length;
     const lines = [];
     lines.push(t.exportHeader);
+    if (validCount > 1) lines.push(t.synthesisNote.replace('{n}', validCount));
     lines.push('='.repeat(24));
     lines.push('');
     lines.push(`【${t.exportThemes}】`);
@@ -1024,8 +1169,7 @@ function App() {
   };
 
   return (
-    <div className={`app-shell lang-${lang}`} style={{ cursor: 'none' }}>
-      <div className="custom-cursor" ref={cursorRef} />
+    <div className={`app-shell lang-${lang}`}>
       <TopNav onHowItWorks={scrollToLanding} onToolkit={scrollToToolkit} onTry={scrollToTool} onToggleLang={toggleLang} t={t} />
 
       <Landing onStart={scrollToTool} landingRef={landingRef} t={t} />
@@ -1034,75 +1178,82 @@ function App() {
 
 
       {/* Main work area — Upload & Analyze */}
+      <div className="layout-section">
       <main className="layout" ref={toolRef}>
         <section className="input-panel">
           <SectionHeading>{t.uploadTitle}</SectionHeading>
-          <textarea
-            className="textarea-field"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t.uploadPlaceholder}
-          />
 
-          <div
-            className={`upload-zone${dragActive ? ' is-active' : ''}`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              hidden
-              onChange={handleFileChange}
-            />
-            <p className="upload-zone-text">
-              {t.uploadZoneText}<span className="upload-zone-link">{t.uploadZoneLink}</span>
-            </p>
-            <p className="upload-zone-hint">{t.uploadZoneHint}</p>
+          <div className="transcript-list">
+            {transcripts.map((tr, i) => (
+              <div className="transcript-slot" key={tr.id}>
+                <div className="transcript-slot-header">
+                  <input
+                    className="transcript-name"
+                    placeholder={`${t.transcriptDefault} ${i + 1}`}
+                    value={tr.name}
+                    onChange={(e) => updateTranscript(tr.id, 'name', e.target.value)}
+                  />
+                  {transcripts.length > 1 && (
+                    <button className="transcript-remove" onClick={() => removeTranscript(tr.id)}>×</button>
+                  )}
+                </div>
+                <textarea
+                  className="textarea-field"
+                  value={tr.content}
+                  onChange={(e) => updateTranscript(tr.id, 'content', e.target.value)}
+                  placeholder={t.uploadPlaceholder}
+                />
+              </div>
+            ))}
           </div>
 
-          {images.length > 0 && (
-            <div className="image-preview-grid">
-              {images.map((img) => (
-                <div className="image-preview" key={img.id}>
-                  <img src={img.base64} alt={img.name} />
-                  <button
-                    type="button"
-                    className="image-preview-remove"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeImage(img.id);
-                    }}
-                    aria-label={`Delete ${img.name}`}
-                  >
-                    ×
-                  </button>
+          <button className="btn-add-transcript" onClick={addTranscript}>{t.addTranscript}</button>
+
+          <>
+              <div
+                className={`upload-zone${dragActive ? ' is-active' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+              >
+                <input ref={fileInputRef} type="file" accept=".pdf,.txt,image/jpeg,image/png,image/webp" multiple hidden onChange={handleFileChange} />
+                <p className="upload-zone-text">{t.uploadZoneText}<span className="upload-zone-link">{t.uploadZoneLink}</span></p>
+                <p className="upload-zone-hint">{t.uploadZoneHint}</p>
+              </div>
+              {images.length > 0 && (
+                <div className="image-preview-grid">
+                  {images.map((img) => (
+                    <div className="image-preview" key={img.id}>
+                      <img src={img.base64} alt={img.name} />
+                      <button type="button" className="image-preview-remove" onClick={(e) => { e.stopPropagation(); removeImage(img.id); }} aria-label={`Delete ${img.name}`}>×</button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
+            </>
 
           <div className="input-actions">
             <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? t.uploadAnalyzing : t.uploadAnalyze}
+              {loading ? t.uploadAnalyzing : (transcripts.length > 1 ? `${t.uploadAnalyzeMulti} (${transcripts.filter((tr) => tr.content.trim()).length})` : t.uploadAnalyze)}
             </button>
             <div className="voice-upload-wrap">
               <button type="button" className="btn-ghost" onClick={handleVoiceUploadClick}>{t.uploadVoice}</button>
               {voiceHintVisible && <span className="voice-hint" role="status">{t.uploadVoiceHint}</span>}
             </div>
-            {loading && <ProgressIndicator step={progressStep} t={t} />}
+            {loading && (
+              progressMsg
+                ? <span className="progress-msg">{progressMsg}</span>
+                : <ProgressIndicator step={progressStep} t={t} />
+            )}
           </div>
           {error && <div className="error-banner">{error}</div>}
         </section>
@@ -1115,17 +1266,21 @@ function App() {
             <>
               <div className="results-header">
                 <p className="results-subtitle">{t.resultsSubtitle}</p>
-                <button className="btn-primary" onClick={handleExport}>{t.resultsExport}</button>
+                <div className="results-header-actions">
+                  <button className="btn-ghost" onClick={() => setSourceModal({})}>{t.viewSource}</button>
+                  <button className="btn-primary" onClick={handleExport}>{t.resultsExport}</button>
+                </div>
               </div>
               <div className="columns">
                 <Column title={t.colThemes}>
                   {(result.themes || []).map((theme, i) => (
-                    <Card key={i}>
+                    <Card key={i} isConfirmed={confirmedItems[`themes-${i}`]} onConfirm={() => confirmItem('themes', i)} evidence={theme.evidence} onViewEvidence={(q) => setSourceModal({ quote: q })} t={t}>
                       <EditableText
                         value={theme.title}
                         onChange={(v) => updateField('themes', i, 'title', v)}
                         style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-primary)' }}
                       />
+                      {theme.sourceCount > 1 && <span className="source-count-badge">{t.sourceCountLabel.replace('{n}', theme.sourceCount)}</span>}
                       <EditableText
                         value={theme.summary}
                         onChange={(v) => updateField('themes', i, 'summary', v)}
@@ -1137,7 +1292,7 @@ function App() {
                 </Column>
                 <Column title={t.colPainPoints}>
                   {(result.painPoints || []).map((point, i) => (
-                    <Card key={i}>
+                    <Card key={i} isConfirmed={confirmedItems[`painPoints-${i}`]} onConfirm={() => confirmItem('painPoints', i)} evidence={point.evidence} onViewEvidence={(q) => setSourceModal({ quote: q })} t={t}>
                       <EditableText
                         value={point.description}
                         onChange={(v) => updateField('painPoints', i, 'description', v)}
@@ -1147,13 +1302,14 @@ function App() {
                       <div style={{ marginTop: '12px' }}>
                         <Badge label={t.exportFrequency} level={point.frequency} t={t} />
                         <Badge label={t.exportSeverity} level={point.severity} t={t} />
+                        {point.sourceCount > 1 && <span className="source-count-badge">{t.sourceCountLabel.replace('{n}', point.sourceCount)}</span>}
                       </div>
                     </Card>
                   ))}
                 </Column>
                 <Column title={t.colPersonas}>
                   {(result.personas || []).map((persona, i) => (
-                    <Card key={i}>
+                    <Card key={i} isConfirmed={confirmedItems[`personas-${i}`]} onConfirm={() => confirmItem('personas', i)} evidence={persona.evidence} onViewEvidence={(q) => setSourceModal({ quote: q })} t={t}>
                       <EditableText
                         value={persona.name}
                         onChange={(v) => updateField('personas', i, 'name', v)}
@@ -1191,6 +1347,18 @@ function App() {
                     <div className="insight-card" key={i}>
                       <span className="insight-index">{String(i + 1).padStart(2, '0')}</span>
                       <div className="insight-body">
+                        <div className="card-trust-row">
+                          {confirmedItems[`insights-${i}`] ? (
+                            <span className="confirmed-badge">✓ {t.confirmedBadge}</span>
+                          ) : (
+                            <button className="doubt-badge" onClick={() => confirmItem('insights', i)}>⚠ {t.doubtBadge}</button>
+                          )}
+                          {insight.evidence && (
+                            <button className="btn-evidence" onClick={() => setSourceModal({ quote: insight.evidence })}>
+                              {t.evidenceBtn}
+                            </button>
+                          )}
+                        </div>
                         <div className="insight-title">
                           <EditableText
                             value={insight.title}
@@ -1224,9 +1392,11 @@ function App() {
           )}
         </section>
       </main>
+      </div>
 
       <CTA onStart={scrollToTool} t={t} />
       <Footer t={t} />
+      {sourceModal && <SourceModal text={buildSourceText()} highlightQuote={sourceModal.quote} onClose={() => setSourceModal(null)} t={t} />}
     </div>
   );
 }
