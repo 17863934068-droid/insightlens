@@ -1,18 +1,15 @@
-import React, { useRef, useState, useEffect } from 'react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LabelList,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import './App.css';
+import ResultsReview from './research/ResultsReview.jsx';
+import { analysisBundle, analysisSources, reviewPrompt } from './research/result-adapter.js';
+import { demoInput, demoReview } from './data/web-demo.js';
+import { extractPdfText } from './research/pdf-text.js';
+import { parseAiResponse, validateAnalysis } from './research/ai-response.js';
+import { groundClaims } from './research/grounding.js';
+import ProjectLibrary from './research/ProjectLibrary.jsx';
+import './research/workspace-polish.css';
+import { LIBRARY_KEY, newInterview, newResearchProject, loadProjectLibrary, patchResearchProject, projectBackup, restoreResearchProject, projectFromReview, analysisIsOutdated, trashResearchProject, recoverResearchProject, resetWorkspace } from './research/project-library.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -26,17 +23,20 @@ const I18N = {
   en: {
     navHowItWorks: 'How it works',
     navToolkit: 'Research Toolkit',
-    navTry: 'Try it',
+    navTry: 'My projects',
     heroSlogan: 'Think deeper. Move faster.',
     heroSubcopy: 'An AI-powered user research tool that transforms messy interview transcripts into structured insights.',
     heroCta: 'Start Researching',
+    skillDownload: 'Download Skill',
+    skillGuide: 'GitHub & setup ↗',
+    skillDescription: 'The Skill provides a reusable interview analysis workflow. The web workspace lets you trace sources, review conclusions and save research projects.',
     howTitle: 'How it works',
     howSubtitle: 'From raw interviews to decisions in three steps',
     howStep1Title: 'Upload',
-    howStep1Desc: 'Drop in your interview recordings or transcripts.',
+    howStep1Desc: 'Add your interview transcripts. Recording transcription is not yet available.',
     howStep2Title: 'Analyze',
     howStep2Desc: 'AI extracts themes, quotes, and patterns into structured insights.',
-    howStep3Title: 'Decide',
+    howStep3Title: 'Review',
     howStep3Desc: 'Review, edit, and export. You stay in control of every conclusion.',
     toolkitTitle: 'Research Toolkit',
     toolkitSubtitle: 'Common methods and tools for user researchers',
@@ -93,7 +93,7 @@ const I18N = {
     uploadPlaceholder: 'Paste one or more interview transcripts…',
     uploadZoneText: 'Drag transcript files here, or ',
     uploadZoneLink: 'click to upload',
-    uploadZoneHint: 'Supports TXT / DOCX / PDF, multiple files',
+    uploadZoneHint: 'Supports TXT / PDF, multiple files',
     uploadAnalyze: 'Start Analysis',
     uploadAnalyzing: 'Analyzing…',
     uploadVoice: 'Upload Recording',
@@ -163,20 +163,23 @@ const I18N = {
   zh: {
     navHowItWorks: '\u8fd0\u4f5c\u65b9\u5f0f',
     navToolkit: '\u7814\u7a76\u5de5\u5177\u7bb1',
-    navTry: '\u5c1d\u8bd5\u4f7f\u7528',
+    navTry: '我的项目',
     navStart: '\u5f00\u59cb\u7814\u7a76',
     heroSlogan: '\u601d\u8003\u66f4\u6df1\uff0c\u884c\u52a8\u66f4\u5feb\u3002',
 
     heroSubcopy: 'AI \u9a71\u52a8\u7684\u7528\u6237\u7814\u7a76\u5de5\u5177\uff0c\u5c06\u6742\u4e71\u7684\u8bbf\u8c08\u8bb0\u5f55\u8f6c\u5316\u4e3a\u7ed3\u6784\u5316\u6d1e\u5bdf\u3002',
     heroCta: '\u5f00\u59cb\u7814\u7a76',
+    skillDownload: '下载 Skill',
+    skillGuide: 'GitHub 与安装说明 ↗',
+    skillDescription: 'Skill 提供可复用的访谈分析流程；网页工作区支持原文溯源、结论审阅与研究项目保存。',
     howTitle: '\u8fd0\u4f5c\u65b9\u5f0f',
     howSubtitle: '\u4ece\u539f\u59cb\u8bbf\u8c08\u5230\u51b3\u7b56\uff0c\u53ea\u9700\u4e09\u6b65',
     howStep1Title: '\u4e0a\u4f20',
-    howStep1Desc: '\u62d6\u5165\u8bbf\u8c08\u5f55\u97f3\u6216\u6587\u5b57\u7a3f\u3002',
+    howStep1Desc: '添加访谈文字稿；录音转写暂未开放。',
     howStep2Title: '\u5206\u6790',
     howStep2Desc: 'AI \u63d0\u53d6\u4e3b\u9898\u3001\u5f15\u6587\u548c\u6a21\u5f0f\uff0c\u5f62\u6210\u7ed3\u6784\u5316\u6d1e\u5bdf\u3002',
-    howStep3Title: '\u51b3\u7b56',
-    howStep3Desc: '\u5ba1\u9605\u3001\u7f16\u8f91\u3001\u5bfc\u51fa\u3002\u6bcf\u4e2a\u7ed3\u8bba\u90fd\u7531\u4f60\u638c\u63a7\u3002',
+    howStep3Title: '核对与修订',
+    howStep3Desc: '对照原文检查疑点、修订结论，并记录判断依据。',
     toolkitTitle: '\u7814\u7a76\u5de5\u5177\u7bb1',
     toolkitSubtitle: '\u7528\u6237\u7814\u7a76\u8005\u5e38\u7528\u7684\u65b9\u6cd5\u4e0e\u5de5\u5177',
     toolkitLearnMore: '+ \u4e86\u89e3\u66f4\u591a',
@@ -232,7 +235,7 @@ const I18N = {
     uploadPlaceholder: '\u7c98\u8d34\u4e00\u6bb5\u6216\u591a\u6bb5\u8bbf\u8c08\u8bb0\u5f55\u2026',
     uploadZoneText: '\u5c06\u8bbf\u8c08\u7a3f\u62d6\u62fd\u5230\u6b64\u5904\uff0c\u6216',
     uploadZoneLink: '\u70b9\u51fb\u4e0a\u4f20',
-    uploadZoneHint: '\u652f\u6301 TXT / DOCX / PDF\uff0c\u53ef\u591a\u6587\u4ef6\u4e0a\u4f20',
+    uploadZoneHint: '\u652f\u6301 TXT / PDF\uff0c\u53ef\u591a\u6587\u4ef6\u4e0a\u4f20',
     uploadAnalyze: '\u5f00\u59cb\u5206\u6790',
     uploadAnalyzing: '\u5206\u6790\u4e2d\u2026',
     uploadVoice: '\u5f55\u97f3\u4e0a\u4f20',
@@ -301,78 +304,57 @@ const I18N = {
   },
 };
 
-const SEVERITY_TONE = {
-  高: 'var(--color-severity-high)',
-  中: 'var(--color-severity-medium)',
-  低: 'var(--color-severity-low)',
-};
-
-const SEVERITY_CHART_COLORS = { 高: '#E8409A', 中: '#FF6B35', 低: '#2ECC71' };
-const THEME_BAR_COLOR = '#FF6B35';
-const CHART_FONT = "'DM Sans', sans-serif";
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ACCEPTED_TEXT_TYPES = ['application/pdf', 'text/plain'];
 
-async function extractPdfText(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const parts = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    parts.push(content.items.map((item) => item.str).join(' '));
-  }
-  return parts.join('\n\n').trim();
-}
-
-const API_KEY = 'sk-361e92a453c44324b376f5385f21057b';
-const API_URL = 'https://api.deepseek.com/chat/completions';
+const API_URL = '/api/analyze';
 
 const SYSTEM_PROMPT = `你是一名专业的用户研究分析师。请仔细阅读用户提供的访谈内容，分析后仅以 JSON 格式输出结果，不要包含任何 JSON 之外的说明文字。
 
 JSON 结构如下，请严格遵守字段名和取值范围：
 {
   "themes": [ { "title": "主题标题", "summary": "对该主题的概括，1-2句话", "evidence": "直接从原文中截取的支撑句，必须逐字引用原文，不得改写" } ],
-  "painPoints": [ { "description": "痛点描述", "frequency": "高 | 中 | 低", "severity": "高 | 中 | 低", "theme": "该痛点所属主题的标题，必须与 themes 数组中某一项的 title 完全一致", "evidence": "直接从原文中截取的体现该痛点的句子，必须逐字引用原文，不得改写" } ],
+  "painPoints": [ { "title": "简短的痛点标题", "description": "痛点描述", "frequency": "高 | 中 | 低", "severity": "高 | 中 | 低", "theme": "该痛点所属主题的标题，必须与 themes 数组中某一项的 title 完全一致", "evidence": "直接从原文中截取的体现该痛点的句子，必须逐字引用原文，不得改写" } ],
   "personas": [ { "name": "用户画像名称", "background": "背景描述", "needs": "核心诉求", "evidence": "直接从原文中截取的支撑该画像的句子，必须逐字引用原文，不得改写" } ],
   "insights": [ { "title": "洞察标题", "description": "对该洞察的解释，1-2句话", "nextStep": "建议的下一步行动", "evidence": "直接从原文中截取的引发该洞察的句子，必须逐字引用原文，不得改写" } ]
 }
 
 要求：
-- themes 数组包含 3-5 个主题聚类
+- 按材料支持的内容生成主题，不设最低条数；证据不足的分类可返回空数组
 - painPoints 中每条的 frequency 和 severity 字段只能是 "高"、"中"、"低" 三者之一
 - painPoints 中每条的 theme 字段必须引用 themes 数组中已存在的某个 title，建立痛点与主题的关联
-- personas 数组包含 1-2 个用户画像
-- insights 数组包含 3-5 条深刻洞察，每条需同时给出标题、解释和建议的下一步行动
+- 仅在原文有充分背景、行为与诉求信息时生成画像，不得补写未知信息
+- 洞察保留原文中的条件、否定与不确定性，区分受访者陈述、推断和建议
+- 每条重要结论必须有直接支撑的 evidence；缺少支撑时不生成该条结论，不得为凑数扩写或重复
+- nextStep 明确为待验证建议，不得将建议当作已证实需求或效果
 - 所有 evidence 字段必须是原文的原话，逐字截取，不得改写、总结或意译`;
 
-const SYNTHESIS_PROMPT = `你是一名专业的用户研究分析师。以下是对多份独立访谈的分析结果（JSON数组），每个元素包含访谈名称（interviewName）和该份访谈的结构化分析（analysis）。
+const SYNTHESIS_PROMPT = `你是一名专业的用户研究分析师。以下是同一研究项目的原稿与补充资料的分段分析结果（JSON数组），每个元素包含访谈名称（interviewName）和该份访谈的结构化分析（analysis）。
 
-请综合所有分析结果，提取跨访谈的共性规律，合并相似条目，并在每条内容中添加 sourceCount 字段（整数，表示该条内容在几份访谈中有所体现）。
+资料分段不代表不同受访者或独立访谈，不得按分段数量推断人数或普遍性。请综合所有分析结果，保持原稿上下文，合并相似条目，并在每条内容中添加 sourceCount 字段（整数，表示该条内容在几份资料中有所体现，不表示人数）。
 
 JSON 结构如下：
 {
   "themes": [ { "title": "...", "summary": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
-  "painPoints": [ { "description": "...", "frequency": "高|中|低", "severity": "高|中|低", "theme": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
+  "painPoints": [ { "title": "简短的痛点标题", "description": "...", "frequency": "高|中|低", "severity": "高|中|低", "theme": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
   "personas": [ { "name": "...", "background": "...", "needs": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ],
   "insights": [ { "title": "...", "description": "...", "nextStep": "...", "evidence": "最具代表性的原文引用", "sourceCount": N } ]
 }
 
 要求：
 - 合并相似或重叠的主题、痛点，不得重复列举
-- sourceCount 表示该条内容在几份访谈分析中有所体现，按从高到低排序
-- themes 3-5 条，painPoints 不限，personas 1-3 个，insights 3-5 条
+- sourceCount 仅表示包含该内容的资料段数，不能作为独立用户支持数，按从高到低排序
+- 条数由材料支持程度决定，各分类允许为空，不得为凑数增加结论
+- 保留原文条件与不确定性，不能把相关性改成因果，或把建议当作受访者需求
 - evidence 必须是某份访谈原文的原话，逐字引用`;
 
-function TopNav({ onHowItWorks, onToolkit, onTry, onToggleLang, t }) {
+function TopNav({ onTry, onToggleLang, t }) {
   return (
     <header className="topnav">
       <div className="topnav-inner">
         <span className="topnav-logo">InsightLens</span>
         <nav className="topnav-links">
-          <button type="button" className="topnav-link" onClick={onHowItWorks}>{t.navHowItWorks}</button>
-          <button type="button" className="topnav-link" onClick={onToolkit}>{t.navToolkit}</button>
           <button type="button" className="topnav-link" onClick={onTry}>{t.navTry}</button>
           <button type="button" className="topnav-lang-toggle" onClick={onToggleLang}>
             {t.langToggle}
@@ -384,198 +366,28 @@ function TopNav({ onHowItWorks, onToolkit, onTry, onToggleLang, t }) {
 }
 
 
-function handleDecoClick(e) {
-  const el = e.currentTarget;
-  if (el.classList.contains('is-bouncing')) return;
-  el.classList.add('is-bouncing');
-  const randomAngle = (Math.random() - 0.5) * 20;
-  el.style.setProperty('--rot', `rotate(${randomAngle}deg)`);
-  el.addEventListener('animationend', () => {
-    el.classList.remove('is-bouncing');
-  }, { once: true });
-}
-
 function Landing({ onStart, landingRef, t }) {
   return (
     <section className="landing" ref={landingRef}>
-      <img className="landing-bg-img" src="/research-bg.jpg" alt="" aria-hidden="true" />
+      <img className="landing-bg-img" src={`${import.meta.env.BASE_URL}research-bg.jpg`} alt="" aria-hidden="true" />
       <div className="landing-overlay" aria-hidden="true" />
       <div className="landing-inner">
         <div className="landing-hero-text">
           <h1 className="landing-title">InsightLens</h1>
           <p className="landing-subcopy">{t.heroSubcopy}</p>
-          <button className="landing-cta" onClick={onStart}>{t.heroCta}</button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks({ t }) {
-  return (
-    <section className="how-it-works" id="how-it-works">
-      <div className="how-it-works-inner">
-        <h2 className="how-it-works-title">{t.howTitle}</h2>
-        <p className="how-it-works-subtitle">{t.howSubtitle}</p>
-        <div className="how-it-works-steps">
-          <div className="how-it-works-step">
-            <div className="how-it-works-step-icon how-it-works-step-icon--orange">01</div>
-            <h3 className="how-it-works-step-title">{t.howStep1Title}</h3>
-            <p className="how-it-works-step-desc">{t.howStep1Desc}</p>
+          <div className="landing-actions">
+            <button className="landing-cta" onClick={onStart}>{t.heroCta}</button>
+            <a className="landing-skill-download" href="https://github.com/17863934068-droid/insightlens-skill/archive/refs/heads/main.zip">{t.skillDownload}<span aria-hidden="true"> ↓</span></a>
           </div>
-          <div className="how-it-works-step">
-            <div className="how-it-works-step-icon how-it-works-step-icon--pink">02</div>
-            <h3 className="how-it-works-step-title">{t.howStep2Title}</h3>
-            <p className="how-it-works-step-desc">{t.howStep2Desc}</p>
-          </div>
-          <div className="how-it-works-step">
-            <div className="how-it-works-step-icon how-it-works-step-icon--green">03</div>
-            <h3 className="how-it-works-step-title">{t.howStep3Title}</h3>
-            <p className="how-it-works-step-desc">{t.howStep3Desc}</p>
+          <div className="landing-skill-info">
+            <p>{t.skillDescription}</p>
+            <a href="https://github.com/17863934068-droid/insightlens-skill#readme" target="_blank" rel="noopener noreferrer">{t.skillGuide}</a>
           </div>
         </div>
       </div>
     </section>
   );
 }
-
-
-const TOOLKIT_CARDS = [
-  {
-    emoji: '🎙️',
-    nameKey: 'cardInterview',
-    descKey: 'cardInterviewDesc',
-    detailKey: 'cardInterviewDetail',
-    tag1Key: 'cardInterviewTag1',
-    tag2Key: 'cardInterviewTag2',
-  },
-  {
-    emoji: '📝',
-    nameKey: 'cardSurvey',
-    descKey: 'cardSurveyDesc',
-    detailKey: 'cardSurveyDetail',
-    tag1Key: 'cardSurveyTag1',
-    tag2Key: 'cardSurveyTag2',
-  },
-  {
-    emoji: '👁️',
-    nameKey: 'cardObservation',
-    descKey: 'cardObservationDesc',
-    detailKey: 'cardObservationDetail',
-    tag1Key: 'cardObservationTag1',
-    tag2Key: 'cardObservationTag2',
-  },
-  {
-    emoji: '🗂️',
-    nameKey: 'cardSorting',
-    descKey: 'cardSortingDesc',
-    detailKey: 'cardSortingDetail',
-    tag1Key: 'cardSortingTag1',
-    tag2Key: 'cardSortingTag2',
-  },
-  {
-    emoji: '🧪',
-    nameKey: 'cardUsability',
-    descKey: 'cardUsabilityDesc',
-    detailKey: 'cardUsabilityDetail',
-    tag1Key: 'cardUsabilityTag1',
-    tag2Key: 'cardUsabilityTag2',
-  },
-  {
-    emoji: '🗣️',
-    nameKey: 'cardFocusGroup',
-    descKey: 'cardFocusGroupDesc',
-    detailKey: 'cardFocusGroupDetail',
-    tag1Key: 'cardFocusGroupTag1',
-    tag2Key: 'cardFocusGroupTag2',
-  },
-  {
-    emoji: '📊',
-    nameKey: 'cardDiary',
-    descKey: 'cardDiaryDesc',
-    detailKey: 'cardDiaryDetail',
-    tag1Key: 'cardDiaryTag1',
-    tag2Key: 'cardDiaryTag2',
-  },
-  {
-    emoji: '⚖️',
-    nameKey: 'cardAB',
-    descKey: 'cardABDesc',
-    detailKey: 'cardABDetail',
-    tag1Key: 'cardABTag1',
-    tag2Key: 'cardABTag2',
-  },
-  {
-    emoji: '🗺️',
-    nameKey: 'cardJourney',
-    descKey: 'cardJourneyDesc',
-    detailKey: 'cardJourneyDetail',
-    tag1Key: 'cardJourneyTag1',
-    tag2Key: 'cardJourneyTag2',
-  },
-];
-
-const TAG_COLORS = ['#FF6B35', '#E8409A', '#2ECC71', '#3B82F6', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#14B8A6'];
-
-const ResearchToolkit = React.forwardRef(({ t }, ref) => {
-  const [expanded, setExpanded] = useState({});
-
-  const toggleCard = (index) => {
-    setExpanded((prev) => ({ ...prev, [index]: !prev[index] }));
-  };
-
-  return (
-    <section className="research-toolkit" ref={ref}>
-
-      <div className="research-toolkit-inner">
-        <h2 className="research-toolkit-title">{t.toolkitTitle}</h2>
-        <p className="research-toolkit-subtitle">{t.toolkitSubtitle}</p>
-        <div className="research-toolkit-grid">
-          {TOOLKIT_CARDS.map((card, i) => {
-            const isOpen = expanded[i];
-            return (
-              <div
-                className={`toolkit-card${isOpen ? ' is-expanded' : ''}`}
-                key={i}
-                onClick={() => toggleCard(i)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    toggleCard(i);
-                  }
-                }}
-              >
-                <div className="toolkit-card-header">
-                  <span className="toolkit-card-emoji">{card.emoji}</span>
-                  <div className="toolkit-card-info">
-                    <h3 className="toolkit-card-name">{t[card.nameKey]}</h3>
-                    <p className="toolkit-card-desc">{t[card.descKey]}</p>
-                  </div>
-                </div>
-                <div className="toolkit-card-expand">
-                  <div className="toolkit-card-detail">
-                    <p className="toolkit-card-detail-text">{t[card.detailKey]}</p>
-                    <div className="toolkit-card-tags">
-                      <span className="toolkit-tag toolkit-tag--first" style={{ background: TAG_COLORS[i % TAG_COLORS.length] }}>
-                        {t[card.tag1Key]}
-                      </span>
-                      <span className="toolkit-tag toolkit-tag--second">
-                        {t[card.tag2Key]}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <span className="toolkit-card-hint">{t.toolkitLearnMore}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-});
 
 function CTA({ onStart, t }) {
 
@@ -603,7 +415,6 @@ function Footer({ t }) {
             <h4 className="footer-links-title">{t.footerProduct}</h4>
             <ul className="footer-links">
               <li><a>{t.footerFeatures}</a></li>
-              <li><a>{t.footerHow}</a></li>
               <li><a>{t.footerPricing}</a></li>
             </ul>
           </div>
@@ -658,286 +469,86 @@ function ProgressIndicator({ step, t }) {
   );
 }
 
-const SEVERITY_LABEL_MAP = {
-  高: 'severityHigh',
-  中: 'severityMedium',
-  低: 'severityLow',
-};
-
-function Badge({ label, level, t }) {
-  const mappedLevel = t ? t[SEVERITY_LABEL_MAP[level]] || level : level;
-  return (
-    <span className="badge">
-      <span className="badge-dot" style={{ background: SEVERITY_TONE[level] || SEVERITY_TONE.中 }} />
-      <span className="badge-text">{label} · {mappedLevel}</span>
-    </span>
-  );
-}
-
-function EditableText({ value, onChange, multiline = false, style }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  const startEdit = () => {
-    setDraft(value);
-    setEditing(true);
-  };
-
-  const commit = () => {
-    setEditing(false);
-    if (draft !== value) onChange(draft);
-  };
-
-  const cancel = () => {
-    setDraft(value);
-    setEditing(false);
-  };
-
-  if (editing) {
-    const Field = multiline ? 'textarea' : 'input';
-    return (
-      <Field
-        autoFocus
-        className="editable-input"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !multiline) {
-            e.preventDefault();
-            commit();
-          }
-          if (e.key === 'Escape') cancel();
-        }}
-        rows={multiline ? 3 : undefined}
-        style={style}
-      />
-    );
-  }
-
-  return (
-    <span className="editable-field" onClick={startEdit} title="Click to edit" style={style}>
-      {value}
-    </span>
-  );
-}
-
-function Card({ children, isConfirmed, onConfirm, evidence, onViewEvidence, t }) {
-  return (
-    <div className={`card${isConfirmed ? ' card--confirmed' : ''}`}>
-      {t && (
-        <div className="card-trust-row">
-          {isConfirmed ? (
-            <span className="confirmed-badge">✓ {t.confirmedBadge}</span>
-          ) : (
-            <button className="doubt-badge" onClick={onConfirm}>⚠ {t.doubtBadge}</button>
-          )}
-          {evidence && onViewEvidence && (
-            <button className="btn-evidence" onClick={(e) => { e.stopPropagation(); onViewEvidence(evidence); }}>
-              {t.evidenceBtn}
-            </button>
-          )}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function Column({ title, children }) {
-  return (
-    <div className="column">
-      <h3 className="column-title">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function EmptyState({ t }) {
-  return (
-    <div className="empty-state">
-      <div className="empty-state-marks" aria-hidden="true">
-        <span /><span /><span />
-      </div>
-      <h3 className="empty-state-title">{t.emptyTitle}</h3>
-      <p className="empty-state-text">{t.emptyText}</p>
-    </div>
-  );
-}
-
-function renderSeverityLabel({ cx, cy, midAngle, outerRadius, name, value, payload }) {
-  const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 18;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  const label = payload?.translatedName || name;
-  return (
-    <text
-      x={x}
-      y={y}
-      textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central"
-      fontSize={12}
-      fontFamily={CHART_FONT}
-      fill="#5c5650"
-    >
-      {`${label} · ${value}`}
-    </text>
-  );
-}
-
-function DataOverview({ result, t }) {
-  const themes = result.themes || [];
-  const painPoints = result.painPoints || [];
-
-  const themeData = themes.map((theme) => ({
-    name: theme.title,
-    count: painPoints.filter((point) => point.theme === theme.title).length,
-  }));
-
-  const severityData = ['高', '中', '低']
-    .map((level) => ({
-      name: level,
-      value: painPoints.filter((point) => point.severity === level).length,
-      translatedName: t[SEVERITY_LABEL_MAP[level]] || level,
-    }))
-    .filter((entry) => entry.value > 0);
-
-  return (
-    <section className="overview-section">
-      <SectionHeading>{t.overviewTitle}</SectionHeading>
-      <div className="overview-charts">
-        <div className="overview-chart-card">
-          <h4 className="overview-chart-title">{t.overviewChart1}</h4>
-          <ResponsiveContainer width="100%" height={Math.max(180, themeData.length * 52)}>
-            <BarChart data={themeData} layout="vertical" margin={{ top: 4, right: 32, bottom: 4, left: 4 }}>
-              <CartesianGrid horizontal={false} stroke="#e8e5e0" />
-              <XAxis type="number" hide allowDecimals={false} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={132}
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: '#5c5650', fontSize: 12, fontFamily: CHART_FONT }}
-              />
-              <Bar dataKey="count" fill={THEME_BAR_COLOR} radius={[0, 4, 4, 0]} maxBarSize={20}>
-                <LabelList dataKey="count" position="right" style={{ fill: '#5c5650', fontSize: 12, fontFamily: CHART_FONT }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="overview-chart-card">
-          <h4 className="overview-chart-title">{t.overviewChart2}</h4>
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie
-                data={severityData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={58}
-                outerRadius={84}
-                paddingAngle={3}
-                startAngle={90}
-                endAngle={-270}
-                label={renderSeverityLabel}
-                labelLine={false}
-              >
-                {severityData.map((entry) => (
-                  <Cell key={entry.name} fill={SEVERITY_CHART_COLORS[entry.name]} stroke="#ffffff" strokeWidth={2} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SourceModal({ text, highlightQuote, onClose, t }) {
-  const bodyRef = useRef(null);
-
-  useEffect(() => {
-    const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
-    if (highlightQuote && bodyRef.current) {
-      const mark = bodyRef.current.querySelector('mark');
-      if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [highlightQuote]);
-
-  const renderBody = () => {
-    if (!highlightQuote) return text;
-    const idx = text.indexOf(highlightQuote);
-    if (idx === -1) {
-      return (
-        <>
-          <span className="source-not-found">{t.evidenceNotFound}</span>
-          {'\n\n'}{text}
-        </>
-      );
-    }
-    return (
-      <>
-        {text.slice(0, idx)}
-        <mark className="source-highlight">{text.slice(idx, idx + highlightQuote.length)}</mark>
-        {text.slice(idx + highlightQuote.length)}
-      </>
-    );
-  };
-
-  return (
-    <div className="source-modal-overlay" onClick={onClose}>
-      <div className="source-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="source-modal-header">
-          <h3 className="source-modal-title">{t.sourceTitle}</h3>
-          <button className="source-modal-close" onClick={onClose}>×</button>
-        </div>
-        <pre className="source-modal-body" ref={bodyRef}>{renderBody()}</pre>
-      </div>
-    </div>
-  );
-}
-
 function App() {
 
-  const [lang, setLang] = useState('en');
+  const [lang, setLang] = useState('zh');
   const t = I18N[lang];
 
   const toggleLang = () => {
     setLang((prev) => (prev === 'en' ? 'zh' : 'en'));
   };
 
-  const [transcripts, setTranscripts] = useState([{ id: crypto.randomUUID(), name: '', content: '' }]);
+  const [initialLibrary] = useState(() => {
+    try { return { library: loadProjectLibrary(localStorage), error: '' }; }
+    catch { const p = newResearchProject(); return { library: { format: 'insightlens-project-library', version: 1, activeId: p.id, projects: [p] }, error: '读取本地项目失败，原存储未被覆盖。请先保留原数据再恢复。' }; }
+  });
+  const [library, setLibrary] = useState(initialLibrary.library);
+  const [saveStatus, setSaveStatus] = useState('saving');
+  const [demoProject, setDemoProject] = useState(null);
+  const [clearedTranscripts, setClearedTranscripts] = useState({});
+  const isDemo = demoProject !== null;
+  const active = demoProject || library.projects.find(p => p.id === library.activeId) || library.projects[0];
+  const transcripts = active.transcripts;
+  const reviewBundle = active.reviewBundle;
+  const updateProject = patch => {
+    if (isDemo) { setDemoProject(current => ({ ...current, ...patch })); return; }
+    setLibrary(current => patchResearchProject(current, active.id, patch));
+  };
+  const setTranscripts = value => {
+    if (isDemo) { setDemoProject(current => ({ ...current, transcripts: typeof value === 'function' ? value(current.transcripts) : value })); return; }
+    setLibrary(current => {
+    const p = current.projects.find(p => p.id === active.id);
+    return patchResearchProject(current, active.id, { transcripts: typeof value === 'function' ? value(p.transcripts) : value });
+    });
+  };
+  const setReviewBundle = bundle => {
+    if (isDemo) { setDemoProject(current => ({ ...current, reviewBundle: bundle, reviewVersion: current.reviewVersion + 1 })); return; }
+    setLibrary(current => {
+    const p = current.projects.find(p => p.id === active.id);
+    return patchResearchProject(current, active.id, { reviewBundle: bundle, reviewVersion: p.reviewVersion + 1 });
+    });
+  };
+  const saveReview = useCallback(backup => {
+    if (isDemo) {
+      setDemoProject(current => {
+        if (!current || current.id !== active.id || JSON.stringify(current.reviewBundle?.backup?.project) === JSON.stringify(backup.project)) return current;
+        return { ...current, reviewBundle: { ...current.reviewBundle, backup } };
+      });
+      return;
+    }
+    setLibrary(current => {
+      const p = current.projects.find(p => p.id === current.activeId);
+      if (!p || p.id !== active.id || JSON.stringify(p.reviewBundle?.backup?.project) === JSON.stringify(backup.project)) return current;
+      return patchResearchProject(current, p.id, { reviewBundle: { ...p.reviewBundle, backup } });
+    });
+  }, [active.id, isDemo]);
+  useEffect(() => {
+    if (initialLibrary.error) return;
+    const flush = () => {
+      try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(library)); setSaveStatus('saved'); }
+      catch { setSaveStatus('failed'); }
+    };
+    const timer = setTimeout(flush, 300);
+    window.addEventListener('pagehide', flush);
+    return () => { clearTimeout(timer); window.removeEventListener('pagehide', flush); };
+  }, [library, initialLibrary.error]);
   const [result, setResult] = useState(null);
+  const [reviewVisible, setReviewVisible] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const flowStage = loading ? 2 : reviewBundle && !analysisIsOutdated(active) ? 3 : transcripts.some(tr => tr.content.trim()) ? 2 : active.topic.trim() ? 1 : 0;
   const [progressStep, setProgressStep] = useState(0);
   const [progressMsg, setProgressMsg] = useState('');
   const [images, setImages] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [voiceHintVisible, setVoiceHintVisible] = useState(false);
-  const [confirmedItems, setConfirmedItems] = useState({});
-  const [sourceModal, setSourceModal] = useState(null); // null | { quote?: string }
+  
   const progressTimer = useRef(null);
   const voiceHintTimer = useRef(null);
   const fileInputRef = useRef(null);
+  const uploadTargetRef = useRef(null);
   const landingRef = useRef(null);
-  const toolkitRef = useRef(null);
   const toolRef = useRef(null);
-
-  const scrollToLanding = () => {
-    landingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const scrollToToolkit = () => {
-    toolkitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   const scrollToTool = () => {
     toolRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -958,7 +569,8 @@ function App() {
     }
   };
 
-  const addFiles = async (fileList) => {
+  const addFiles = async (fileList, targetId) => {
+    setError('');
     const files = Array.from(fileList);
 
     // Images → supplementary preview
@@ -976,43 +588,45 @@ function App() {
       try {
         let text;
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-          text = await extractPdfText(file);
+          text = await extractPdfText(file, pdfjsLib);
         } else {
           text = await file.text();
         }
         const name = file.name.replace(/\.(pdf|txt)$/i, '');
         setTranscripts((prev) => {
-          // If the only slot is empty, fill it; otherwise append a new slot
-          if (prev.length === 1 && !prev[0].content.trim()) {
-            return [{ ...prev[0], name: prev[0].name || name, content: text }];
+          // Imported files belong to the selected material; append without replacing existing text.
+          const target = prev.find(tr => tr.id === targetId) || (prev.length === 1 ? prev[0] : null);
+          if (target) {
+            return prev.map(tr => tr.id === target.id ? { ...tr, name: tr.name || name, content: [tr.content, text].filter(value => value.trim()).join('\n\n') } : tr);
           }
-          return [...prev, { id: crypto.randomUUID(), name, content: text }];
+          return [...prev, { ...newInterview(), name, content: text }];
         });
       } catch (err) {
-        console.error('File extraction failed:', file.name, err);
+        setError(`${file.name}：${lang === 'zh' ? '文稿读取失败，请尝试粘贴文字。' : 'Unable to read the transcript. Try pasting text.'} ${err.message}`);
       }
     }
   };
 
   const handleFileChange = (e) => {
-    addFiles(e.target.files);
+    addFiles(e.target.files, uploadTargetRef.current);
     e.target.value = '';
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e, id) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files') || loading) return;
     e.preventDefault();
-    setDragActive(true);
+    setDragActive(id);
   };
 
   const handleDragLeave = (e) => {
-    e.preventDefault();
-    setDragActive(false);
+    if (!e.currentTarget.contains(e.relatedTarget)) setDragActive(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e, id) => {
+    if (!e.dataTransfer.files?.length) return;
     e.preventDefault();
     setDragActive(false);
-    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+    if (!loading) addFiles(e.dataTransfer.files, id);
   };
 
   const removeImage = (id) => {
@@ -1022,11 +636,11 @@ function App() {
   const buildImageNote = () => {
     if (images.length === 0) return '';
     const names = images.map((img) => img.name).join('、');
-    return `\n\n[补充材料]\n用户额外上传了 ${images.length} 张图片（${names}），可能是产品截图、访谈现场照片或手写笔记等辅助材料。当前模型暂不支持直接解析图片内容，请将这些图片视为佐证材料纳入分析背景，结合文字内容综合判断。`;
+    return `\n\n[补充材料]\n用户额外上传了 ${images.length} 张图片（${names}），可能是产品截图、访谈现场照片或手写笔记等辅助材料。当前模型不能读取图片内容，不得将图片作为证据或推断其内容。仅分析已提供的文字。`;
   };
 
   const addTranscript = () => {
-    setTranscripts((prev) => [...prev, { id: crypto.randomUUID(), name: '', content: '' }]);
+    setTranscripts((prev) => [...prev, newInterview()]);
   };
 
   const removeTranscript = (id) => {
@@ -1037,22 +651,14 @@ function App() {
     setTranscripts((prev) => prev.map((tr) => tr.id === id ? { ...tr, [field]: value } : tr));
   };
 
-  const buildSourceText = () => {
-    const valid = transcripts.filter((tr) => tr.content.trim());
-    if (valid.length === 1) return valid[0].content;
-    return valid.map((tr, i) =>
-      `【${t.transcriptDefault} ${i + 1}${tr.name ? `：${tr.name}` : ''}】\n\n${tr.content}`
-    ).join('\n\n' + '─'.repeat(32) + '\n\n');
-  };
-
-  const callApi = async (systemPrompt, userContent, maxTokens = 2048) => {
+  const callApi = async (systemPrompt, userContent, maxTokens = 6000) => {
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: `${systemPrompt}\n输出必须是完整的 JSON 对象，不要 Markdown 代码围栏或额外解释。各条描述简洁，引文仅截取必要的原文片段，避免重复；确保所有数组和对象完整闭合。` },
           { role: 'user', content: userContent },
         ],
         response_format: { type: 'json_object' },
@@ -1064,11 +670,7 @@ function App() {
       throw new Error(err.error?.message || `API error: ${response.status}`);
     }
     const data = await response.json();
-    try {
-      return JSON.parse(data.choices[0].message.content);
-    } catch {
-      throw new Error('AI response is not valid JSON, please retry');
-    }
+    return parseAiResponse(data);
   };
 
   const handleVoiceUploadClick = () => {
@@ -1077,17 +679,50 @@ function App() {
     voiceHintTimer.current = setTimeout(() => setVoiceHintVisible(false), 2600);
   };
 
-  const confirmItem = (section, index) => {
-    setConfirmedItems((prev) => ({ ...prev, [`${section}-${index}`]: true }));
+  const switchProject = id => {
+    if (loading) return;
+    setDemoProject(null);
+    setLibrary(current => ({ ...current, activeId: id }));
+    setResult(null); setReviewVisible(true); setError(''); setImages([]);
   };
-
-  const updateField = (section, index, field, newValue) => {
-    setResult((prev) => {
-      const list = [...prev[section]];
-      list[index] = { ...list[index], [field]: newValue };
-      return { ...prev, [section]: list };
-    });
-    confirmItem(section, index);
+  const addProject = project => {
+    setDemoProject(null);
+    setLibrary(current => ({ ...current, projects: [...current.projects, project], activeId: project.id }));
+    setResult(null); setReviewVisible(true); setError(''); setImages([]);
+  };
+  const saveProject = () => {
+    if (initialLibrary.error) return;
+    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(library)); setSaveStatus('saved'); }
+    catch { setSaveStatus('failed'); }
+  };
+  const exportCurrentProject = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(projectBackup(active), null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = `${active.name || '访谈项目'}-项目备份.json`;
+    document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+  const importProject = async event => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 10 * 1024 * 1024) throw new Error('项目备份超过 10 MB。');
+      const value = JSON.parse(await file.text());
+      addProject(value.format === 'insightlens-interview-project' ? restoreResearchProject(value) : projectFromReview(value));
+    } catch (err) { setError(`项目导入失败：${err.message}`); }
+  };
+  const loadReviewDemo = () => {
+    const project = newResearchProject({ name: demoInput.name, topic: demoInput.topic, question: demoInput.researchQuestion, transcripts: demoInput.sources.map(source => ({ ...newInterview(), name: source.name || source.sourceId, role: source.role || '', method: source.method || '', content: source.paragraphs.map(p => p.text).join('\n\n') })), reviewBundle: { input: demoInput, review: demoReview, synthetic: true }, reviewVersion: 1 });
+    setDemoProject(project);
+    setReviewVisible(true);
+  };
+  const returnToReviewStart = () => {
+    if (loading) return;
+    setLibrary(current => resetWorkspace(current));
+    setDemoProject(null);
+    setResult(null);
+    setError('');
+    setImages([]);
+    setVoiceHintVisible(false);
+    setReviewVisible(false);
   };
 
   const handleSubmit = async () => {
@@ -1095,28 +730,47 @@ function App() {
     if (valid.length === 0) { setError(t.uploadError); return; }
 
     setLoading(true);
+    setReviewVisible(true);
     setError('');
     setResult(null);
-    setConfirmedItems({});
 
+    const researchContext = { topic: active.topic, question: active.question };
+    const sources = analysisSources(valid);
+    const evidenceInstruction = '\n每条分析增加 evidenceRefs 数组：[{"sourceId":"输入来源编号","paragraphId":"输入段落 id","quote":"该段中逐字摘取的连续原话"}]。仅引用输入中实际存在的编号和原话，不能改写引文，不能用省略号拼接不同位置。每条至少关联一段支持它的原文；证据不足则不生成该条。';
+    const interviewContent = index => `研究背景与访谈信息：${JSON.stringify({ ...researchContext, role: transcripts[0].role, date: transcripts[0].date, method: transcripts[0].method })}\n\n带编号的访谈原稿：\n${JSON.stringify(sources[index])}`;
+    let completed;
     try {
       if (valid.length === 1) {
         startProgress();
-        const parsed = await callApi(SYSTEM_PROMPT, valid[0].content + buildImageNote());
+        const parsed = validateAnalysis(await callApi(SYSTEM_PROMPT + evidenceInstruction, interviewContent(0) + buildImageNote()));
+        completed = parsed;
         setResult(parsed);
       } else {
         const namedResults = [];
         for (let i = 0; i < valid.length; i++) {
           setProgressMsg(`${i + 1} / ${valid.length} ${t.progressAnalyzing}`);
-          const parsed = await callApi(SYSTEM_PROMPT, valid[i].content);
-          namedResults.push({ interviewName: valid[i].name.trim() || `${t.transcriptDefault} ${i + 1}`, analysis: parsed });
+          const parsed = validateAnalysis(await callApi(SYSTEM_PROMPT + evidenceInstruction, interviewContent(i)));
+          namedResults.push({ interviewName: valid[i].name.trim() || `${lang === 'zh' ? '资料' : 'Material'} ${i + 1}`, analysis: parsed });
         }
         setProgressMsg(t.progressSynthesizing);
-        const synthesis = await callApi(SYNTHESIS_PROMPT, JSON.stringify(namedResults), 4096);
+        const synthesis = validateAnalysis(await callApi(SYNTHESIS_PROMPT + evidenceInstruction, JSON.stringify({ analyses: namedResults, sources }), 6000));
+        completed = synthesis;
         setResult(synthesis);
       }
+      setProgressMsg(lang === 'zh' ? '正在检查疑点与证据位置…' : 'Checking doubts and evidence…');
+      let input = analysisBundle(completed, valid, { name: active.name, topic: active.topic, question: active.question });
+      setProgressMsg(lang === 'zh' ? '正在关联结论与原文…' : 'Linking conclusions to sources…');
+      try { input = await groundClaims(input, callApi); }
+      catch { /* Keep the analysis and allow retrying source linking in the review panel. */ }
+      const snapshot = { transcriptSnapshot: JSON.parse(JSON.stringify(valid)), topicSnapshot: active.topic, questionSnapshot: active.question, generatedAt: new Date().toISOString() };
+      try {
+        const review = await callApi(reviewPrompt, JSON.stringify(input), 6000);
+        setReviewBundle({ input, review, ...snapshot });
+      } catch {
+        setReviewBundle({ input, review: {}, reviewUnavailable: true, ...snapshot });
+      }
     } catch (err) {
-      setError(`Error: ${err.message}`);
+      setError(err.message);
     } finally {
       setLoading(false);
       stopProgress();
@@ -1124,111 +778,63 @@ function App() {
     }
   };
 
-  const handleExport = () => {
-    if (!result) return;
-    const validCount = transcripts.filter((tr) => tr.content.trim()).length;
-    const lines = [];
-    lines.push(t.exportHeader);
-    if (validCount > 1) lines.push(t.synthesisNote.replace('{n}', validCount));
-    lines.push('='.repeat(24));
-    lines.push('');
-    lines.push(`【${t.exportThemes}】`);
-    (result.themes || []).forEach((theme, i) => {
-      lines.push(`${i + 1}. ${theme.title}`);
-      lines.push(`   ${theme.summary}`);
-      lines.push('');
-    });
-    lines.push(`【${t.exportPainPoints}】`);
-    (result.painPoints || []).forEach((point, i) => {
-      lines.push(`${i + 1}. ${point.description}`);
-      lines.push(`   ${t.exportFrequency}：${point.frequency}  ${t.exportSeverity}：${point.severity}`);
-      lines.push('');
-    });
-    lines.push(`【${t.exportPersonas}】`);
-    (result.personas || []).forEach((persona, i) => {
-      lines.push(`${i + 1}. ${persona.name}`);
-      lines.push(`   ${t.exportBackground}：${persona.background}`);
-      lines.push(`   ${t.exportNeeds}：${persona.needs}`);
-      lines.push('');
-    });
-    lines.push(`【${t.exportInsights}】`);
-    (result.insights || []).forEach((insight, i) => {
-      lines.push(`${i + 1}. ${insight.title}`);
-      lines.push(`   ${insight.description}`);
-      lines.push(`   ${t.exportNextStep}：${insight.nextStep}`);
-      lines.push('');
-    });
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = t.exportFilename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className={`app-shell lang-${lang}`}>
-      <TopNav onHowItWorks={scrollToLanding} onToolkit={scrollToToolkit} onTry={scrollToTool} onToggleLang={toggleLang} t={t} />
+      <TopNav onTry={scrollToTool} onToggleLang={toggleLang} t={t} />
 
       <Landing onStart={scrollToTool} landingRef={landingRef} t={t} />
-      <HowItWorks t={t} />
-      <ResearchToolkit ref={toolkitRef} t={t} />
 
 
       {/* Main work area — Upload & Analyze */}
       <div className="layout-section">
       <main className="layout" ref={toolRef}>
-        <section className="input-panel">
-          <SectionHeading>{t.uploadTitle}</SectionHeading>
+        <h2 className="workspace-title">{lang === 'zh' ? '工作区' : 'Workspace'}</h2>
+        <nav className="research-flow" aria-label={lang === 'zh' ? '访谈研究流程' : 'Interview workflow'}>{[
+          ['research-project-details', '新建访谈', 'Set up', '填写研究主题'],
+          ['interview-materials', '上传文稿', 'Add transcripts', '补充受访者信息'],
+          ['analysis-action', '结构化分析', 'Analyze', '生成分析草稿'],
+          ['analysis-results', '查证与修改', 'Review & revise', '对照原稿判断'],
+        ].map(([id, cn, en], i) => {
+          return <a key={id} href={`#${id}`} className={flowStage === i ? 'is-current' : ''} aria-current={flowStage === i ? 'step' : undefined}><span className="research-flow-index">{String(i + 1).padStart(2, '0')}</span><span><strong>{lang === 'zh' ? cn : en}</strong></span></a>;
+        })}</nav>
+        <ProjectLibrary preview={isDemo} onExitPreview={returnToReviewStart} library={library} active={active} onDelete={id => { setLibrary(current => trashResearchProject(current, id)); setResult(null); setReviewVisible(true); setError(''); setImages([]); }} onRestore={id => { setLibrary(current => recoverResearchProject(current, id)); setResult(null); setReviewVisible(true); setError(''); setImages([]); }} onSelect={switchProject} onCreate={fields => addProject(newResearchProject(fields))} onUpdate={updateProject} onSave={saveProject} onExport={exportCurrentProject} onImport={importProject} disabled={loading} saveStatus={saveStatus} loadError={initialLibrary.error} lang={lang} />
+        <section className="input-panel" id="interview-materials">
+          <SectionHeading>{lang === 'zh' ? '访谈材料' : 'Interview materials'}</SectionHeading>
 
+                <fieldset className="interview-details" disabled={loading}>
+                  <label>{lang === 'zh' ? '角色' : 'Role'}<input aria-label={`${lang === 'zh' ? '角色' : 'Role'} 1`} placeholder={lang === 'zh' ? '例如：项目经理、设计师（可填写多个）' : 'e.g. Project manager, designer (multiple roles allowed)'} value={transcripts[0].role || ''} onChange={e => updateTranscript(transcripts[0].id, 'role', e.target.value)} /></label>
+                  <label>{lang === 'zh' ? '访谈日期' : 'Interview date'}<input type="date" className={!transcripts[0].date ? 'is-placeholder' : undefined} aria-label={`${lang === 'zh' ? '访谈日期' : 'Interview date'} 1`} value={transcripts[0].date || ''} onChange={e => updateTranscript(transcripts[0].id, 'date', e.target.value)} /></label>
+                  <label>{lang === 'zh' ? '访谈方式' : 'Interview method'}<select className={!transcripts[0].method ? 'is-placeholder' : undefined} aria-label={`${lang === 'zh' ? '访谈方式' : 'Interview method'} 1`} value={transcripts[0].method || ''} onChange={e => updateTranscript(transcripts[0].id, 'method', e.target.value)}><option value="">{lang === 'zh' ? '未填写' : 'Not specified'}</option><option value="线上视频">{lang === 'zh' ? '线上视频' : 'Video call'}</option><option value="电话">{lang === 'zh' ? '电话' : 'Phone'}</option><option value="线下面谈">{lang === 'zh' ? '线下面谈' : 'In person'}</option><option value="文字访谈">{lang === 'zh' ? '文字访谈' : 'Text interview'}</option></select></label>
+                </fieldset>
           <div className="transcript-list">
             {transcripts.map((tr, i) => (
               <div className="transcript-slot" key={tr.id}>
-                <div className="transcript-slot-header">
-                  <input
-                    className="transcript-name"
-                    placeholder={`${t.transcriptDefault} ${i + 1}`}
-                    value={tr.name}
-                    onChange={(e) => updateTranscript(tr.id, 'name', e.target.value)}
+                {i > 0 && <div className="transcript-remove-row"><button type="button" className="transcript-remove" disabled={loading} aria-label={`${lang === 'zh' ? '移除补充资料' : 'Remove supplementary material'} ${i + 1}`} onClick={() => removeTranscript(tr.id)}>{lang === 'zh' ? '移除补充资料 ×' : 'Remove supplementary material ×'}</button></div>}
+
+                <div className={`transcript-entry${dragActive === tr.id ? ' is-dragging' : ''}`} onDragOver={e => handleDragOver(e, tr.id)} onDragLeave={handleDragLeave} onDrop={e => handleDrop(e, tr.id)}>
+                  <div className="transcript-entry-toolbar"><span>{lang === 'zh' ? (i === 0 ? '访谈原稿' : `补充资料 ${i}`) : (i === 0 ? 'Transcript' : `Supplementary material ${i}`)}</span><div className="transcript-entry-actions">
+                    {tr.content ? <button type="button" className="transcript-clear-button" disabled={loading} aria-label={`${lang === 'zh' ? '清空文稿' : 'Clear transcript'} ${i + 1}`} onClick={() => { setClearedTranscripts(current => ({ ...current, [tr.id]: tr.content })); updateTranscript(tr.id, 'content', ''); }}>{lang === 'zh' ? '清空内容' : 'Clear content'}</button> : clearedTranscripts[tr.id] && <button type="button" className="transcript-clear-button" disabled={loading} onClick={() => { updateTranscript(tr.id, 'content', clearedTranscripts[tr.id]); setClearedTranscripts(current => { const next = { ...current }; delete next[tr.id]; return next; }); }}>{lang === 'zh' ? '撤销清空' : 'Undo clear'}</button>}
+                    <button type="button" disabled={loading} className="transcript-upload-button" onClick={() => { uploadTargetRef.current = tr.id; fileInputRef.current?.click(); }} aria-label={`${lang === 'zh' ? '上传文稿' : 'Upload transcript'} ${i + 1}`}>↥ {lang === 'zh' ? '上传 TXT / PDF' : 'Upload TXT / PDF'}</button>
+                  </div></div>
+                  <textarea
+                    aria-label={`${lang === 'zh' ? '访谈原稿' : 'Transcript'} ${i + 1}`}
+                    className="textarea-field"
+                    value={tr.content}
+                    disabled={loading}
+                    onChange={(e) => updateTranscript(tr.id, 'content', e.target.value)}
+                    placeholder={lang === 'zh' ? '在这里粘贴访谈文字，或将 TXT / PDF 文件拖入此框…' : 'Paste your transcript here, or drop a TXT / PDF file into this box…'}
                   />
-                  {transcripts.length > 1 && (
-                    <button className="transcript-remove" onClick={() => removeTranscript(tr.id)}>×</button>
-                  )}
+                  <div className="transcript-entry-footer"><span>{dragActive === tr.id ? (lang === 'zh' ? '松开以导入' : 'Drop to import') : ''}</span><span>{tr.content.length.toLocaleString()} {lang === 'zh' ? '字' : 'characters'}</span></div>
                 </div>
-                <textarea
-                  className="textarea-field"
-                  value={tr.content}
-                  onChange={(e) => updateTranscript(tr.id, 'content', e.target.value)}
-                  placeholder={t.uploadPlaceholder}
-                />
               </div>
             ))}
           </div>
 
-          <button className="btn-add-transcript" onClick={addTranscript}>{t.addTranscript}</button>
+          <button className="rr-text-button transcript-add-supplement" disabled={loading} onClick={addTranscript}>{lang === 'zh' ? '＋ 添加补充资料' : '+ Add supplementary material'}</button>
 
           <>
-              <div
-                className={`upload-zone${dragActive ? ' is-active' : ''}`}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-              >
-                <input ref={fileInputRef} type="file" accept=".pdf,.txt,image/jpeg,image/png,image/webp" multiple hidden onChange={handleFileChange} />
-                <p className="upload-zone-text">{t.uploadZoneText}<span className="upload-zone-link">{t.uploadZoneLink}</span></p>
-                <p className="upload-zone-hint">{t.uploadZoneHint}</p>
-              </div>
+              <input ref={fileInputRef} type="file" accept=".pdf,.txt" multiple hidden onChange={handleFileChange} />
               {images.length > 0 && (
                 <div className="image-preview-grid">
                   {images.map((img) => (
@@ -1241,14 +847,12 @@ function App() {
               )}
             </>
 
+          <div className="analysis-action-heading" id="analysis-action"><h3>{lang === 'zh' ? '结构化分析' : 'Structured analysis'}</h3>{reviewBundle && <p className="analysis-rerun-note">{lang === 'zh' ? '重新分析会替换当前结果与审阅记录。' : 'A new analysis replaces the current results and review.'}</p>}</div>
           <div className="input-actions">
-            <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? t.uploadAnalyzing : (transcripts.length > 1 ? `${t.uploadAnalyzeMulti} (${transcripts.filter((tr) => tr.content.trim()).length})` : t.uploadAnalyze)}
+            <button className="btn-primary" onClick={handleSubmit} disabled={loading || !transcripts.some(tr => tr.content.trim())}>
+              {loading ? t.uploadAnalyzing : lang === 'zh' ? (reviewBundle ? '重新生成分析草稿' : '生成分析草稿 →') : (reviewBundle ? 'Regenerate draft' : 'Generate draft →')}
             </button>
-            <div className="voice-upload-wrap">
-              <button type="button" className="btn-ghost" onClick={handleVoiceUploadClick}>{t.uploadVoice}</button>
-              {voiceHintVisible && <span className="voice-hint" role="status">{t.uploadVoiceHint}</span>}
-            </div>
+            <div className="voice-upload-wrap"><button type="button" className="rr-text-button" onClick={handleVoiceUploadClick}>{lang === 'zh' ? '只有录音文件？' : 'Only have a recording?'}</button>{voiceHintVisible && <span className="voice-hint" role="status">{t.uploadVoiceHint}</span>}</div>
             {loading && (
               progressMsg
                 ? <span className="progress-msg">{progressMsg}</span>
@@ -1258,145 +862,27 @@ function App() {
           {error && <div className="error-banner">{error}</div>}
         </section>
 
-        <section className="results-panel">
-          <SectionHeading>{t.resultsTitle}</SectionHeading>
-          {!result ? (
-            <EmptyState t={t} />
-          ) : (
-            <>
-              <div className="results-header">
-                <p className="results-subtitle">{t.resultsSubtitle}</p>
-                <div className="results-header-actions">
-                  <button className="btn-ghost" onClick={() => setSourceModal({})}>{t.viewSource}</button>
-                  <button className="btn-primary" onClick={handleExport}>{t.resultsExport}</button>
-                </div>
-              </div>
-              <div className="columns">
-                <Column title={t.colThemes}>
-                  {(result.themes || []).map((theme, i) => (
-                    <Card key={i} isConfirmed={confirmedItems[`themes-${i}`]} onConfirm={() => confirmItem('themes', i)} evidence={theme.evidence} onViewEvidence={(q) => setSourceModal({ quote: q })} t={t}>
-                      <EditableText
-                        value={theme.title}
-                        onChange={(v) => updateField('themes', i, 'title', v)}
-                        style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-primary)' }}
-                      />
-                      {theme.sourceCount > 1 && <span className="source-count-badge">{t.sourceCountLabel.replace('{n}', theme.sourceCount)}</span>}
-                      <EditableText
-                        value={theme.summary}
-                        onChange={(v) => updateField('themes', i, 'summary', v)}
-                        multiline
-                        style={{ marginTop: '5px', fontSize: '13px', fontWeight: 400, lineHeight: 1.7, color: 'var(--gray-500)' }}
-                      />
-                    </Card>
-                  ))}
-                </Column>
-                <Column title={t.colPainPoints}>
-                  {(result.painPoints || []).map((point, i) => (
-                    <Card key={i} isConfirmed={confirmedItems[`painPoints-${i}`]} onConfirm={() => confirmItem('painPoints', i)} evidence={point.evidence} onViewEvidence={(q) => setSourceModal({ quote: q })} t={t}>
-                      <EditableText
-                        value={point.description}
-                        onChange={(v) => updateField('painPoints', i, 'description', v)}
-                        multiline
-                        style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--gray-700)' }}
-                      />
-                      <div style={{ marginTop: '12px' }}>
-                        <Badge label={t.exportFrequency} level={point.frequency} t={t} />
-                        <Badge label={t.exportSeverity} level={point.severity} t={t} />
-                        {point.sourceCount > 1 && <span className="source-count-badge">{t.sourceCountLabel.replace('{n}', point.sourceCount)}</span>}
-                      </div>
-                    </Card>
-                  ))}
-                </Column>
-                <Column title={t.colPersonas}>
-                  {(result.personas || []).map((persona, i) => (
-                    <Card key={i} isConfirmed={confirmedItems[`personas-${i}`]} onConfirm={() => confirmItem('personas', i)} evidence={persona.evidence} onViewEvidence={(q) => setSourceModal({ quote: q })} t={t}>
-                      <EditableText
-                        value={persona.name}
-                        onChange={(v) => updateField('personas', i, 'name', v)}
-                        style={{ fontSize: '15px', fontWeight: 600, color: 'var(--gray-800)' }}
-                      />
-                      <div className="card-field">
-                        <span className="card-field-label">{t.exportBackground}</span>
-                        <EditableText
-                          value={persona.background}
-                          onChange={(v) => updateField('personas', i, 'background', v)}
-                          multiline
-                          style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--gray-500)' }}
-                        />
-                      </div>
-                      <div className="card-field">
-                        <span className="card-field-label">{t.exportNeeds}</span>
-                        <EditableText
-                          value={persona.needs}
-                          onChange={(v) => updateField('personas', i, 'needs', v)}
-                          multiline
-                          style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--gray-500)' }}
-                        />
-                      </div>
-                    </Card>
-                  ))}
-                </Column>
-              </div>
-
-              <DataOverview result={result} t={t} />
-
-              <section className="insights-section">
-                <SectionHeading>{t.insightsTitle}</SectionHeading>
-                <div className="insights-list">
-                  {(result.insights || []).map((insight, i) => (
-                    <div className="insight-card" key={i}>
-                      <span className="insight-index">{String(i + 1).padStart(2, '0')}</span>
-                      <div className="insight-body">
-                        <div className="card-trust-row">
-                          {confirmedItems[`insights-${i}`] ? (
-                            <span className="confirmed-badge">✓ {t.confirmedBadge}</span>
-                          ) : (
-                            <button className="doubt-badge" onClick={() => confirmItem('insights', i)}>⚠ {t.doubtBadge}</button>
-                          )}
-                          {insight.evidence && (
-                            <button className="btn-evidence" onClick={() => setSourceModal({ quote: insight.evidence })}>
-                              {t.evidenceBtn}
-                            </button>
-                          )}
-                        </div>
-                        <div className="insight-title">
-                          <EditableText
-                            value={insight.title}
-                            onChange={(v) => updateField('insights', i, 'title', v)}
-                            style={{ fontSize: '16px', fontWeight: 600, color: '#1B2A4A' }}
-                          />
-                        </div>
-                        <div className="insight-description">
-                          <EditableText
-                            value={insight.description}
-                            onChange={(v) => updateField('insights', i, 'description', v)}
-                            multiline
-                            style={{ fontSize: '14px', fontWeight: 400, lineHeight: 1.7, color: 'var(--gray-600)' }}
-                          />
-                        </div>
-                        <div className="card-field insight-next-block">
-                          <span className="card-field-label insight-next-label">{t.insightNext}</span>
-                          <EditableText
-                            value={insight.nextStep}
-                            onChange={(v) => updateField('insights', i, 'nextStep', v)}
-                            multiline
-                            style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--gray-500)' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </>
+        <section className="results-panel" id="analysis-results">
+          <div className="review-section-heading">
+            <SectionHeading>{lang === 'zh' ? '查证与修改' : 'Review & revise'}</SectionHeading>
+            {(result || reviewBundle) && reviewVisible && <button className="rr-text-button" onClick={returnToReviewStart}>{lang === 'zh' ? '返回初始页' : 'Back to start'}</button>}
+          </div>
+          {reviewVisible && analysisIsOutdated(active) && <p className="project-stale-notice">{lang === 'zh' ? '材料已更新，下方为上次分析。' : 'Your inputs changed. The results below retain the previous analysis and its original source snapshot.'}</p>}
+          {(!result && !reviewBundle || !reviewVisible) && (
+            <><div className="workflow-empty"><p>{lang === 'zh' ? '分析完成后，在这里核对与修改结论。' : 'Review and revise conclusions here after analysis.'}</p></div><div className="review-entry-actions">
+              {(result || reviewBundle) && <button className="btn-primary" onClick={() => setReviewVisible(true)}>{lang === 'zh' ? '继续查证' : 'Continue review'}</button>}
+              <button className="btn-ghost" onClick={loadReviewDemo}>{lang === 'zh' ? '查看展示案例' : 'View demo case'}</button>
+            </div></>
           )}
+          {(result || reviewBundle) && <div hidden={!reviewVisible}>
+            <ResultsReview key={`${active.id}-${active.reviewVersion}`} bundle={reviewBundle} lang={lang} onProjectChange={saveReview} onFindEvidence={input => groundClaims(input, callApi)} projectName={active.name} onExportProject={exportCurrentProject} researchQuestion={[active.topic, active.question].filter(Boolean).join(' · ')} />
+          </div>}
         </section>
       </main>
       </div>
 
       <CTA onStart={scrollToTool} t={t} />
       <Footer t={t} />
-      {sourceModal && <SourceModal text={buildSourceText()} highlightQuote={sourceModal.quote} onClose={() => setSourceModal(null)} t={t} />}
     </div>
   );
 }

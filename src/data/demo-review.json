@@ -1,0 +1,309 @@
+{
+  "reviewScope": {
+    "sourceIds": [
+      "M01",
+      "M02",
+      "M03",
+      "M04"
+    ],
+    "limitations": [
+      "完整读取 input.json 的 12 条结论、所附引用及 M01–M04 的全部已提供段落；所给材料是合成节选，不是完整原稿。",
+      "M01 与 M04 均对应 U11；四份材料对应 U11、U12、U13 三位独立受访者，追访不增加支持人数。",
+      "M05 未提供，R12 单列 unverifiable 资料提示，未进行语义真伪判断。",
+      "仅检查结论与已提供材料的关系，不判断受访者陈述的外部真实性；未开展网络查询、外部模型调用或真实用户测试。",
+      "未标记不代表已确认正确；疑点均待研究者审阅，候选修订不能自动替换结论。",
+      "本次是更新规则后对同一材料的回归执行，是同一模型的合成样本试运行，不是新的未见样本评估，不提供准确率或真实用户验证结论。"
+    ]
+  },
+  "scopeNotices": [
+    {
+      "id": "R12-N01",
+      "targetId": "R12",
+      "status": "unverifiable",
+      "sourceId": "M05",
+      "paragraphId": "M05-P001",
+      "reason": "输入明确说明 M05 未提供，无法核验原始引用“请自动发给所有人。”及其 U14 归属和上下文。不据此断言完整原稿不存在该表述，也不将缺材料计为四类疑点。",
+      "neededMaterial": "M05 原稿、M05-P001 对应段落及 U14 身份和上下文。"
+    }
+  ],
+  "issues": [
+    {
+      "id": "R01-Q01",
+      "targetId": "R01",
+      "targetText": "U11 接受会后自动发送纪要给全组。",
+      "span": "接受会后自动发送纪要给全组",
+      "category": "omitted_condition",
+      "assessment": "needs_review",
+      "reason": "引用“才可以发给同组成员。”在指定段落逐字存在，但结论省去了本人检查并点击发送的前提。U11 明确不接受录完自动群发。访谈员 M01-P001 的引导问题不能当作 U11 的同意。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M01",
+          "paragraphId": "M01-P002",
+          "quote": "U11：只有我检查并点击发送之后，才可以发给同组成员。我不接受录完自动群发。",
+          "relation": "contradicts"
+        }
+      ],
+      "missingEvidence": [],
+      "suggestedRevision": "U11 要求本人检查并点击发送之后才向同组成员发送，不接受录完自动群发。",
+      "status": "pending"
+    },
+    {
+      "id": "R03-Q01",
+      "targetId": "R03",
+      "targetText": "三位不同受访者都明确要求发送前核对。",
+      "span": "三位不同受访者都明确要求发送前核对",
+      "category": "overgeneralization",
+      "assessment": "needs_review",
+      "reason": "U11 与 U13 提出发送前人工确认；U12 在提供节选中未评价该要求，不能算支持者。M04 为 U11 的追访，按 participantId 去重后仍只有两位表达此要求。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M01",
+          "paragraphId": "M01-P002",
+          "quote": "U11：只有我检查并点击发送之后，才可以发给同组成员。我不接受录完自动群发。",
+          "relation": "supports"
+        },
+        {
+          "sourceId": "M03",
+          "paragraphId": "M03-P001",
+          "quote": "U13：纪要里谁负责、什么时候完成，这两项我每次都要核对。我不反对系统给草稿，但不会未经确认就发出去。",
+          "relation": "supports"
+        },
+        {
+          "sourceId": "M02",
+          "paragraphId": "M02-P001",
+          "quote": "U12：我还没用过自动纪要。你说的功能得先试一下，我现在不能判断愿不愿意用。",
+          "relation": "no_position"
+        },
+        {
+          "sourceId": "M02",
+          "paragraphId": "M02-P002",
+          "quote": "U12：如果只在我自己的电脑上整理，而且不涉及客户姓名，我可以先试试。否则需要问公司能不能用。",
+          "relation": "no_position"
+        },
+        {
+          "sourceId": "M04",
+          "paragraphId": "M04-P001",
+          "quote": "U11：这是上次访谈的补充。我还是那个想先检查再发送的人，并不是另一个用户。",
+          "relation": "limits"
+        }
+      ],
+      "missingEvidence": [
+        "U12 对发送前核对需求的直接评价。"
+      ],
+      "suggestedRevision": "U11 与 U13 表达了发送前人工确认要求；U12 尚未评价这一需求。",
+      "status": "pending"
+    },
+    {
+      "id": "R05-Q01",
+      "targetId": "R05",
+      "targetText": "清理模板使整理时间降低了 50%，应立即向所有团队推广。",
+      "span": "清理模板使整理时间降低了 50%",
+      "category": "unsupported_inference",
+      "assessment": "needs_review",
+      "reason": "通常约二十分钟与清理模板后一次十分钟只是粗略的单次比较；U11 明确表示该次会议也短且不知道哪个因素起作用，不能把差异确定归因于模板清理。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M01",
+          "paragraphId": "M01-P003",
+          "quote": "U11：现在每周大约开两次会，我整理一次大概二十分钟。上周和同事一起清理模板后，有一次十分钟就弄完了。但那次会议也短，不知道是哪一个起作用。",
+          "relation": "limits"
+        }
+      ],
+      "missingEvidence": [
+        "排除会议长度等因素并包含重复经历的效果比较。"
+      ],
+      "suggestedRevision": "U11 自述通常整理约二十分钟，清理模板后有一次约十分钟；那次会议也较短，尚不能确定原因。",
+      "status": "pending"
+    },
+    {
+      "id": "R05-Q02",
+      "targetId": "R05",
+      "targetText": "清理模板使整理时间降低了 50%，应立即向所有团队推广。",
+      "span": "应立即向所有团队推广",
+      "category": "overgeneralization",
+      "assessment": "needs_review",
+      "reason": "一位受访者的一次且原因未明的经历不能支持所有团队都适用或应立即推广；材料没有其他团队的效果与适用范围比较。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M01",
+          "paragraphId": "M01-P003",
+          "quote": "U11：现在每周大约开两次会，我整理一次大概二十分钟。上周和同事一起清理模板后，有一次十分钟就弄完了。但那次会议也短，不知道是哪一个起作用。",
+          "relation": "limits"
+        }
+      ],
+      "missingEvidence": [
+        "不同团队情境下的效果、适用边界及立即推广的决策依据。"
+      ],
+      "suggestedRevision": "可将模板清理作为待验证机会，先在不同团队和会议情境中评估。",
+      "status": "pending"
+    },
+    {
+      "id": "R07-Q01",
+      "targetId": "R07",
+      "targetText": "U12 不愿意使用自动纪要。",
+      "span": "U12 不愿意使用自动纪要",
+      "category": "omitted_condition",
+      "assessment": "needs_review",
+      "reason": "U12 表示目前不能判断使用意愿，并在本地整理且不涉及客户姓名的条件下愿意先试；其他情况需询问公司。结论省略这些条件，把暂不能判断及有条件尝试写成拒绝。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M02",
+          "paragraphId": "M02-P001",
+          "quote": "U12：我还没用过自动纪要。你说的功能得先试一下，我现在不能判断愿不愿意用。",
+          "relation": "limits"
+        },
+        {
+          "sourceId": "M02",
+          "paragraphId": "M02-P002",
+          "quote": "U12：如果只在我自己的电脑上整理，而且不涉及客户姓名，我可以先试试。否则需要问公司能不能用。",
+          "relation": "contradicts"
+        }
+      ],
+      "missingEvidence": [],
+      "suggestedRevision": "U12 尚不能判断使用意愿；在本地整理且不涉及客户姓名时愿意先试，其他情形需询问公司。",
+      "status": "pending"
+    },
+    {
+      "id": "R09-Q01",
+      "targetId": "R09",
+      "targetText": "U13 说：“周五前必须交”。因此，他已经承诺周五交付。",
+      "span": "因此，他已经承诺周五交付",
+      "category": "unsupported_inference",
+      "assessment": "needs_review",
+      "reason": "“周五前必须交”逐字存在，但它是 U13 转述系统的错误改写，并非 U13 的承诺。其自述原话为“可能周五”，且明确担心试探性说法变成承诺；应检查转述对象及情态，不能由引用匹配推出承诺。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M03",
+          "paragraphId": "M03-P002",
+          "quote": "U13：上次它把我说的“可能周五”写成“周五前必须交”。我最怕的是把试探的说法变成承诺。",
+          "relation": "contradicts"
+        }
+      ],
+      "missingEvidence": [],
+      "suggestedRevision": "U13 报告系统将“可能周五”误写为“周五前必须交”，担心试探性表述被变成承诺。",
+      "status": "pending"
+    },
+    {
+      "id": "R11-Q01",
+      "targetId": "R11",
+      "targetText": "U13 说：“我反对系统给草稿”。",
+      "span": "我反对系统给草稿",
+      "category": "citation_mismatch",
+      "assessment": "verified_mismatch",
+      "reason": "在已提供且可读的 M03-P001 中逐字查找原始引用“我反对系统给草稿”，未找到；实际文本为“我不反对系统给草稿”。缺失否定词导致指定引用失配。",
+      "relatedEvidence": [
+        {
+          "sourceId": "M03",
+          "paragraphId": "M03-P001",
+          "quote": "U13：纪要里谁负责、什么时候完成，这两项我每次都要核对。我不反对系统给草稿，但不会未经确认就发出去。",
+          "relation": "contradicts"
+        }
+      ],
+      "missingEvidence": [],
+      "suggestedRevision": "U13 说：“我不反对系统给草稿”，但不会未经确认就发送。",
+      "status": "pending"
+    }
+  ],
+  "reviewedTargets": [
+    {
+      "targetId": "R01",
+      "targetText": "U11 接受会后自动发送纪要给全组。",
+      "issueIds": [
+        "R01-Q01"
+      ],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "flagged_for_review"
+    },
+    {
+      "targetId": "R02",
+      "targetText": "所提供四份访谈材料对应三位不同受访者，U11 被访谈两次。",
+      "issueIds": [],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "no_issue_identified_in_provided_materials"
+    },
+    {
+      "targetId": "R03",
+      "targetText": "三位不同受访者都明确要求发送前核对。",
+      "issueIds": [
+        "R03-Q01"
+      ],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "flagged_for_review"
+    },
+    {
+      "targetId": "R04",
+      "targetText": "U11 和 U13 都表达了发送前需要人工确认；U12 尚未评价这一需求。",
+      "issueIds": [],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "no_issue_identified_in_provided_materials"
+    },
+    {
+      "targetId": "R05",
+      "targetText": "清理模板使整理时间降低了 50%，应立即向所有团队推广。",
+      "issueIds": [
+        "R05-Q01",
+        "R05-Q02"
+      ],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "flagged_for_review"
+    },
+    {
+      "targetId": "R06",
+      "targetText": "一种待验证解释是，模板清理可能减少整理工作，但现有单次经历无法排除会议长度的影响。",
+      "issueIds": [],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "no_issue_identified_in_provided_materials"
+    },
+    {
+      "targetId": "R07",
+      "targetText": "U12 不愿意使用自动纪要。",
+      "issueIds": [
+        "R07-Q01"
+      ],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "flagged_for_review"
+    },
+    {
+      "targetId": "R08",
+      "targetText": "U12 在本地整理且不涉及客户姓名时愿意尝试；其他情形需要询问公司。",
+      "issueIds": [],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "no_issue_identified_in_provided_materials"
+    },
+    {
+      "targetId": "R09",
+      "targetText": "U13 说：“周五前必须交”。因此，他已经承诺周五交付。",
+      "issueIds": [
+        "R09-Q01"
+      ],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "flagged_for_review"
+    },
+    {
+      "targetId": "R10",
+      "targetText": "受访者 U11 与 U13 提出先核对再发送。该主题不代表两人对全部自动纪要功能持同一态度。",
+      "issueIds": [],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "no_issue_identified_in_provided_materials",
+      "title": "发送前核对"
+    },
+    {
+      "targetId": "R11",
+      "targetText": "U13 说：“我反对系统给草稿”。",
+      "issueIds": [
+        "R11-Q01"
+      ],
+      "scopeNoticeIds": [],
+      "reviewOutcome": "flagged_for_review"
+    },
+    {
+      "targetId": "R12",
+      "targetText": "在 M05 中，U14 明确要求全量自动群发。",
+      "issueIds": [],
+      "scopeNoticeIds": [
+        "R12-N01"
+      ],
+      "reviewOutcome": "unverifiable"
+    }
+  ]
+}

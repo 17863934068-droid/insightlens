@@ -1,0 +1,56 @@
+/* Shared type and spacing across project setup, materials, analysis and review. */
+.layout .workspace-title{font-family:var(--font-sans);font-size:28px;font-weight:500;line-height:1.5;color:#1b2e4b;margin:0}
+.layout{--work-title:20px;--work-body:16px;--work-meta:14px;--work-ink:#344054;--work-muted:#667085;--work-line:#e1e6ed;font-family:var(--font-sans);font-size:var(--work-body);line-height:1.75;gap:28px;color:var(--work-ink)}
+.layout :is(input,textarea,select,button){font-family:inherit}
+.layout .section-title,.layout .pl-refined .pl-heading h2{font-family:inherit;font-size:22px;font-weight:600;line-height:1.5;margin:0;color:#1b2e4b}
+.layout .section-heading{margin-bottom:24px}
+.layout :is(.input-panel,.results-panel){padding:28px;border:1px solid var(--work-line);box-shadow:none;border-radius:10px}
+.layout .research-flow a{padding:15px 18px;font-size:var(--work-meta)}
+.layout .research-flow strong,.layout .research-flow-index{font-size:var(--work-meta);font-weight:500}
+.layout .research-flow{border-color:var(--work-line);background:#f8fafc}
+.layout .pl-root.pl-refined{border-color:var(--work-line)}
+.layout .pl-refined :is(.pl-fields label,.pl-text-action,.pl-import,.pl-row-delete,.pl-more,.pl-row-title small,.pl-row-meta,.pl-row-status,.pl-delete-notice,.pl-empty,.pl-actions p,.pl-create-actions>span){font-size:var(--work-meta);color:var(--work-muted);line-height:1.75}
+.layout .pl-refined :is(.pl-fields input,.pl-fields textarea,.pl-library-controls input){font-size:var(--work-body);font-weight:400;line-height:1.75;color:var(--work-ink)}
+.layout .pl-refined .pl-fields{gap:20px}
+.layout .pl-refined .pl-fields label{gap:10px;font-size:15px;font-weight:600;color:#1b2e4b;line-height:1.5}
+.layout .pl-refined .pl-question textarea{min-height:96px}
+.layout .pl-refined .pl-row-title{font-size:var(--work-body);font-weight:500}
+.layout .pl-refined .pl-row-select{padding:14px 0}
+.layout :is(.btn-primary,.btn-ghost,.pl-next,.pl-header-actions .btn-ghost,.pl-actions .btn-primary,.pl-actions .btn-ghost,.btn-add-transcript){font-size:var(--work-meta);line-height:1.5;font-weight:500;padding:10px 16px;min-height:42px;box-sizing:border-box}
+.layout .pl-header-actions{gap:16px}
+.layout .pl-refined .pl-actions{padding-top:20px;margin-top:24px}
+.layout .pl-actions .pl-save-error{color:#a65240}
+.layout .interview-details{gap:16px;margin-bottom:20px}
+.layout .interview-details label{font-size:15px;font-weight:600;color:#1b2e4b;line-height:1.5;gap:10px}
+.layout .interview-details :is(input,select){font-size:var(--work-body);font-weight:400;padding:10px 12px;line-height:1.5;background:#fff;border-color:var(--work-line);color:var(--work-ink)}
+.layout .transcript-slot{padding:20px;border-color:var(--work-line);border-radius:8px}
+.layout .transcript-list{gap:20px}
+.layout .transcript-entry-toolbar,.layout .transcript-upload-button,.layout .transcript-entry-footer,.layout .transcript-remove-row .transcript-remove{font-size:var(--work-meta);line-height:1.6;color:var(--work-muted)}
+.layout .transcript-upload-button{color:#425b78;padding:6px 10px}
+.layout .transcript-entry-toolbar{padding:10px 14px}
+.layout .transcript-entry-toolbar>span{font-weight:600;color:#1b2e4b}
+.layout .transcript-slot .transcript-entry .textarea-field{font-family:inherit;font-size:var(--work-body);line-height:1.85;padding:16px;min-height:230px}
+.layout .transcript-entry-footer{padding:10px 14px}
+.layout .analysis-action-heading{margin-top:24px;padding-top:24px;border-color:var(--work-line)}
+.layout .analysis-action-heading h3{font-size:22px;line-height:1.5;font-weight:600;color:#1b2e4b;margin:0 0 16px}
+.layout .analysis-action-heading p,.layout .project-stale-notice,.layout .voice-hint,.layout .progress-msg,.layout .error-banner{font-size:var(--work-meta);line-height:1.8}
+.layout .voice-upload-wrap .rr-text-button{font-size:var(--work-meta);color:var(--work-muted)}
+.layout .input-actions{gap:16px;flex-wrap:wrap}
+.layout .workflow-empty{padding:32px 20px}
+.layout .workflow-empty p{font-size:var(--work-body);line-height:1.8;color:var(--work-muted);margin:0}
+.layout .review-demo-button{display:block;font-size:var(--work-meta);margin:16px auto 0}
+.layout .review-section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+.layout .review-section-heading .section-heading{margin-bottom:0}
+.layout .review-section-heading>.rr-text-button{font-size:var(--work-meta);white-space:nowrap}
+.layout .review-entry-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+.layout .transcript-add-supplement{font-size:var(--work-meta);margin-top:16px;padding:6px 0}
+.layout :is(input,textarea)::placeholder{font-size:13px;font-weight:400;color:#98a2b3;opacity:1}
+.layout .pl-refined .pl-fields input.is-placeholder{font-size:13px;color:#98a2b3}
+.layout .interview-details :is(input,select).is-placeholder{font-size:13px;color:#98a2b3;min-height:46px}
+.layout .interview-details select option{font-size:16px;color:var(--work-ink)}
+@media(max-width:760px){.layout :is(.input-panel,.results-panel){padding:20px}.layout .pl-header-actions{gap:12px}.layout .transcript-slot{padding:16px}.layout .pl-refined .pl-actions{align-items:flex-start}.layout .pl-refined .pl-actions>div{flex-wrap:wrap}}
+@media(max-width:600px){.layout{padding:24px 16px;gap:24px}.layout .research-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.layout .research-flow a{padding:13px 12px;gap:8px;border:0}.layout .research-flow a:nth-child(odd){border-right:1px solid var(--work-line)}.layout .research-flow a:nth-child(-n+2){border-bottom:1px solid var(--work-line)}.layout .research-flow a>span:last-child{display:block}.layout .interview-details{gap:12px}.layout .interview-details input,.layout .interview-details select{min-width:0}.layout .transcript-entry-footer{align-items:flex-start}.layout .pl-refined .pl-heading{gap:16px}.layout .pl-refined .pl-header-actions{flex-wrap:wrap}}
+.transcript-entry-actions{display:flex;align-items:center;justify-content:flex-end;gap:16px;flex-wrap:wrap}
+.layout .transcript-clear-button{border:0;background:transparent;padding:6px 0;font:400 13px/1.5 var(--font-sans);color:#667085;cursor:pointer}
+.layout .transcript-clear-button:hover{color:#1b2e4b}
+.layout .transcript-clear-button:disabled{opacity:.5;cursor:default}

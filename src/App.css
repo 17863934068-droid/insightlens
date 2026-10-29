@@ -269,6 +269,13 @@
 .landing-cta:active {
   transform: translateY(0) scale(0.98);
 }
+.landing-actions{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:16px}
+.landing-skill-download{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;padding:13px 24px;border:1px solid rgba(255,255,255,.3);border-radius:var(--radius-sm);font:500 14px/normal var(--font-sans);letter-spacing:.04em;color:#fff;text-decoration:none;background:rgba(255,255,255,.06);transition:background .2s var(--ease)}
+.landing-skill-download:hover{background:rgba(255,255,255,.15)}
+.landing-skill-info{max-width:510px;margin-top:24px;font-size:13px;font-weight:400;line-height:1.85;color:rgba(255,255,255,.72)}
+.landing-skill-info p{margin:0 0 8px}
+.landing-skill-info a{color:rgba(255,255,255,.85);text-decoration:underline;text-underline-offset:4px}
+.landing-actions :is(a,button):focus-visible,.landing-skill-info a:focus-visible{outline:2px solid #fff;outline-offset:5px}
 
 @media (max-width: 900px) {
   .landing-title { font-size: 80px; }
