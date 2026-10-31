@@ -60,6 +60,7 @@
 
   /* Type */
   --font-display: 'DM Serif Display', Georgia, 'Songti SC', 'STSong', serif;
+  --font-wordmark: Georgia, 'Times New Roman', serif;
   --font-sans: "SF Pro SC", "SF Pro Text", "SF Pro Icons", "PingFang SC", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -114,7 +115,7 @@
 
 .topnav-logo {
   /* "InsightLens" wordmark — always serif, regardless of .lang-zh override. */
-  font-family: 'DM Serif Display', Georgia, 'Songti SC', 'STSong', serif;
+  font-family: var(--font-wordmark);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -217,8 +218,8 @@
 }
 
 .landing-title {
-  font-family: 'DM Serif Display', Georgia, 'Songti SC', 'STSong', serif;
-  font-weight: 400;
+  font-family: var(--font-wordmark);
+  font-weight: 700;
   font-size: clamp(72px, 10vw, 120px);
   line-height: 1.0;
   letter-spacing: -0.02em;
@@ -1353,7 +1354,7 @@
 
 .footer-logo {
   /* "InsightLens" wordmark — always serif, regardless of .lang-zh override. */
-  font-family: 'DM Serif Display', Georgia, 'Songti SC', 'STSong', serif;
+  font-family: var(--font-wordmark);
   font-size: 18px;
   font-weight: 400;
   letter-spacing: -0.01em;
